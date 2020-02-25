@@ -1,8 +1,10 @@
-use nom::character::complete::alpha1;
+use nom::character::complete::anychar;
 use nom::character::complete::space0;
 use nom::combinator::map_res;
+use nom::combinator::verify;
+use nom::error::ParseError;
 use nom::number::complete::recognize_float;
-use nom::sequence::preceded;
+use nom::sequence::separated_pair;
 use nom::IResult;
 use std::str::FromStr;
 
@@ -12,10 +14,10 @@ use std::str::FromStr;
 #[derive(Debug, PartialEq)]
 pub struct Word<V> {
     /// Single code letter, uppercased by the [`word`] parser
-    letter: char,
+    pub letter: char,
 
     /// Value or identifier after letter
-    value: V,
+    pub value: V,
 }
 
 impl<V> Word<V> {
@@ -26,25 +28,26 @@ impl<V> Word<V> {
 }
 
 /// Parse a word
-pub fn word<'a, V, E>(i: &str) -> IResult<&str, Word<V>>
+pub fn word<'a, V, E>(search: char) -> impl Fn(&'a str) -> IResult<&'a str, Word<V>, E>
 where
+    E: ParseError<&'a str>,
     V: FromStr + Default,
 {
-    let (i, letter_str) = alpha1(i)?;
-
-    let letter = letter_str
-        .chars()
-        .next()
-        // alpha1() collects ascii only, so this is safe to do
-        .map(|c| c.to_ascii_uppercase())
-        // alpha1() will fail before the unwrap() here does
-        .unwrap();
-
-    let (i, value): (&str, V) =
-        map_res(preceded(space0, recognize_float), |s: &str| s.parse::<V>())(i)?;
-
-    Ok((i, Word { letter, value }))
+    verify(
+        map_res::<_, _, _, _, E, _, _>(
+            separated_pair(
+                anychar,
+                space0,
+                map_res(recognize_float, |s: &str| s.parse::<V>()),
+            ),
+            |(letter, value)| Ok(Word { letter, value }),
+        ),
+        // move |w| w.letter.to_ascii_uppercase() == search.to_ascii_uppercase(),
+        move |w| w.letter.eq_ignore_ascii_case(&search),
+    )
 }
+
+/// Recognise a word starting with a given character
 
 #[cfg(test)]
 mod tests {
@@ -54,31 +57,51 @@ mod tests {
 
     #[test]
     fn canonical() {
-        assert_eq!(word::<_, ()>("G1"), Ok(("", Word::<u8>::new('G', 1u8))));
+        assert_eq!(
+            word::<_, ()>('G')("G1"),
+            Ok(("", Word::<u8>::new('G', 1u8)))
+        );
     }
 
     #[test]
     fn spaces() {
-        assert_eq!(word::<_, ()>("G \t 1"), Ok(("", Word::<u8>::new('G', 1u8))));
+        assert_eq!(
+            word::<_, ()>('G')("G \t 1"),
+            Ok(("", Word::<u8>::new('G', 1u8)))
+        );
     }
 
     #[test]
     fn leading_zeros() {
-        assert_eq!(word::<_, ()>("G00"), Ok(("", Word::<u8>::new('G', 0u8))));
-        assert_eq!(word::<_, ()>("G01"), Ok(("", Word::<u8>::new('G', 1u8))));
+        assert_eq!(
+            word::<_, ()>('G')("G00"),
+            Ok(("", Word::<u8>::new('G', 0u8)))
+        );
+        assert_eq!(
+            word::<_, ()>('G')("G01"),
+            Ok(("", Word::<u8>::new('G', 1u8)))
+        );
     }
 
     #[test]
     fn float() {
         assert_eq!(
-            word::<_, ()>("X12.45"),
+            word::<_, ()>('X')("X12.45"),
             Ok(("", Word::<f32>::new('X', 12.45f32)))
         );
 
         // Fail to parse to an integer due to trailing characters
         assert_eq!(
-            word::<u8, ()>("X12.45"),
+            word::<u8, _>('X')("X12.45"),
             Err(Error(("12.45", ErrorKind::MapRes)))
+        );
+    }
+
+    #[test]
+    fn non_matching() {
+        assert_eq!(
+            word::<u8, _>('X')("G1"),
+            Err(Error(("G1", ErrorKind::Verify)))
         );
     }
 }

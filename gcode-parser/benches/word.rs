@@ -3,23 +3,25 @@ use gcode_parser::word::word;
 
 fn word_g1(c: &mut Criterion) {
     c.bench_function("word G1", |b| {
-        b.iter(|| word::<String, ()>(black_box("G1")))
+        b.iter(|| word::<String, ()>('G')(black_box("G1")))
     });
 }
 
 fn word_f32(c: &mut Criterion) {
     c.bench_function("word f32", |b| {
-        b.iter(|| word::<f32, ()>(black_box("X12.5678")))
+        b.iter(|| word::<f32, ()>('X')(black_box("X12.5678")))
     });
 }
 
 fn word_u32(c: &mut Criterion) {
-    c.bench_function("word u32", |b| b.iter(|| word::<u32, ()>(black_box("P99"))));
+    c.bench_function("word u32", |b| {
+        b.iter(|| word::<u32, ()>('P')(black_box("P99")))
+    });
 }
 
 fn word_whitespace(c: &mut Criterion) {
     c.bench_function("word whitespace", |b| {
-        b.iter(|| word::<String, ()>(black_box("  M  199  ")))
+        b.iter(|| word::<String, ()>('M')(black_box("M  199")))
     });
 }
 
