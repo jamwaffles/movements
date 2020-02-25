@@ -6,6 +6,7 @@ use nom::error::ParseError;
 use nom::number::complete::recognize_float;
 use nom::sequence::separated_pair;
 use nom::IResult;
+use std::fmt;
 use std::str::FromStr;
 
 /// A gcode word
@@ -24,6 +25,15 @@ impl<V> Word<V> {
     /// Create a new `Word` from a letter and given value type
     pub fn new(letter: char, value: V) -> Self {
         Self { letter, value }
+    }
+}
+
+impl<V> fmt::Display for Word<V>
+where
+    V: fmt::Display,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.letter, self.value)
     }
 }
 
