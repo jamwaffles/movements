@@ -1,18 +1,9 @@
 #![deny(intra_doc_link_resolution_failure)]
 
+pub mod coord;
 pub mod word;
 
-struct Coord {
-    x: Option<f32>,
-    y: Option<f32>,
-    z: Option<f32>,
-    a: Option<f32>,
-    b: Option<f32>,
-    c: Option<f32>,
-    u: Option<f32>,
-    v: Option<f32>,
-    w: Option<f32>,
-}
+use crate::coord::Coord;
 
 enum Motion {
     /// G0

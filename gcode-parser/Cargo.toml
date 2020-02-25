@@ -11,6 +11,10 @@ publish = false
 name = "word"
 harness = false
 
+[[bench]]
+name = "coord"
+harness = false
+
 [dependencies]
 nom = "5.1.1"
 
