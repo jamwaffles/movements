@@ -1,0 +1,59 @@
+# Check that everything (tests, benches, etc) builds in std environments
+precheck_steps: &precheck_steps
+  docker:
+    - image: circleci/rust:1.41.0
+  steps:
+    - checkout
+    - restore_cache:
+        key: v1-movements-{{ .Environment.CIRCLE_JOB }}-{{ checksum "gcode-parser/Cargo.toml" }}
+    - run: sudo apt update && sudo apt install -qq linkchecker
+    - run: rustup default ${RUST_VERSION:-stable}
+    - run: rustup component add rustfmt
+    - run: rustup toolchain add nightly
+    - run: cargo update
+    - run: ./build.sh
+    - save_cache:
+        key: v1-movements-{{ .Environment.CIRCLE_JOB }}-{{ checksum "gcode-parser/Cargo.toml" }}
+        paths:
+          - ./target
+          - /home/ubuntu/.cargo
+
+version: 2
+jobs:
+  precheck-stable:
+    <<: *precheck_steps
+  precheck-beta:
+    environment:
+      - RUST_VERSION: 'beta'
+    <<: *precheck_steps
+  precheck-nightly:
+    environment:
+      - RUST_VERSION: 'nightly'
+    <<: *precheck_steps
+
+precheck_job: &precheck_job
+  requires:
+    - precheck-stable
+    - precheck-beta
+
+build_jobs: &build_jobs
+  jobs:
+    - precheck-stable
+    - precheck-beta
+    - precheck-nightly
+
+workflows:
+  version: 2
+  build_all:
+    <<: *build_jobs
+
+  # Build every day
+  nightly:
+    <<: *build_jobs
+    triggers:
+      - schedule:
+          cron: '0 0 * * *'
+          filters:
+            branches:
+              only:
+                - master
