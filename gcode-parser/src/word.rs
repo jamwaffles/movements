@@ -50,7 +50,12 @@ where
                 space0,
                 map_res(recognize_float, |s: &str| s.parse::<V>()),
             ),
-            |(letter, value)| Ok(Word { letter, value }),
+            |(letter, value)| {
+                Ok(Word {
+                    letter: letter.to_ascii_uppercase(),
+                    value,
+                })
+            },
         ),
         // move |w| w.letter.to_ascii_uppercase() == search.to_ascii_uppercase(),
         move |w| w.letter.eq_ignore_ascii_case(&search),
@@ -112,6 +117,24 @@ mod tests {
         assert_eq!(
             word::<u8, _>('X')("G1"),
             Err(Error(("G1", ErrorKind::Verify)))
+        );
+    }
+
+    #[test]
+    fn force_uppercase() {
+        assert_eq!(
+            word::<_, ()>('g')("g1"),
+            Ok(("", Word::<u8>::new('G', 1u8)))
+        );
+
+        assert_eq!(
+            word::<_, ()>('G')("g1"),
+            Ok(("", Word::<u8>::new('G', 1u8)))
+        );
+
+        assert_eq!(
+            word::<_, ()>('g')("G1"),
+            Ok(("", Word::<u8>::new('G', 1u8)))
         );
     }
 }
