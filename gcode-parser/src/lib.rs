@@ -4,12 +4,14 @@ pub mod block;
 pub mod comment;
 pub mod coord;
 pub mod motion;
+pub mod plane_select;
 pub mod word;
 
 use crate::coord::coord;
 use crate::coord::Coord;
 use crate::motion::motion;
 use crate::motion::Motion;
+use crate::plane_select::{plane_select, PlaneSelect};
 use crate::word::word;
 use nom::branch::alt;
 use nom::character::complete::char;
@@ -29,6 +31,9 @@ pub enum Token {
 
     /// Coordinate
     Coord(Coord),
+
+    /// Plane select
+    PlaneSelect(PlaneSelect),
 }
 
 pub fn token(i: &str) -> IResult<&str, Token> {
@@ -37,5 +42,6 @@ pub fn token(i: &str) -> IResult<&str, Token> {
         map(word('N'), |w| Token::LineNumber(w.value)),
         map(motion, Token::Motion),
         map(coord, Token::Coord),
+        map(plane_select, Token::PlaneSelect),
     ))(i)
 }
