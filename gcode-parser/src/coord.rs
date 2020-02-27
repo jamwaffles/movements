@@ -35,6 +35,15 @@ impl Coord {
     }
 }
 
+impl Coord {
+    pub fn with_x(x: f32) -> Self {
+        Self {
+            x: Some(x),
+            ..Self::default()
+        }
+    }
+}
+
 /// Parse a coordinate
 pub fn coord<'a, E>(i: &'a str) -> IResult<&'a str, Coord, E>
 where

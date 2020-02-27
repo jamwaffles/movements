@@ -1,20 +1,14 @@
-use crate::word::word;
+use crate::token;
 use crate::Token;
-use nom::character::complete::char;
 use nom::character::complete::space0;
-use nom::combinator::opt;
-use nom::error::ParseError;
+use nom::multi::many0;
 use nom::sequence::terminated;
 use nom::IResult;
-use std::str::FromStr;
 
 #[derive(Debug, PartialEq)]
 pub struct Block {
     /// Whether the line has a leading `/` block delete character present
     block_delete: bool,
-
-    /// Line number (optional)
-    line_number: Option<u32>,
 
     /// All tokens in this block, including optional block delete and line numbers
     tokens: Vec<Token>,
@@ -22,15 +16,14 @@ pub struct Block {
 
 /// Parse a block (single line of gcode)
 pub fn block(i: &str) -> IResult<&str, Block> {
-    let (i, block_delete_token) = opt(terminated(char('/'), space0))(i)?;
-    let (i, line_number_token) = opt(terminated(word('N'), space0))(i)?;
+    // TODO: Fix and benchmark `separated_list()` if I can get it to support zero length separators
+    let (i, tokens) = many0(terminated(token, space0))(i)?;
 
     Ok((
         i,
         Block {
-            block_delete: block_delete_token.is_some(),
-            line_number: line_number_token.map(|word| word.value),
-            tokens: Vec::new(),
+            block_delete: tokens.first() == Some(&Token::BlockDelete),
+            tokens,
         },
     ))
 }
@@ -38,6 +31,7 @@ pub fn block(i: &str) -> IResult<&str, Block> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{coord::Coord, motion::Motion};
 
     #[test]
     fn simple_block() {}
@@ -45,13 +39,16 @@ mod tests {
     #[test]
     fn block_delete() {
         assert_eq!(
-            block("/ G1 X0"),
+            block("/ G1 X10"),
             Ok((
-                "G1 X0",
+                "",
                 Block {
                     block_delete: true,
-                    line_number: None,
-                    tokens: Vec::new()
+                    tokens: vec![
+                        Token::BlockDelete,
+                        Token::Motion(Motion::Feed),
+                        Token::Coord(Coord::with_x(10.0))
+                    ]
                 }
             ))
         );
@@ -60,13 +57,16 @@ mod tests {
     #[test]
     fn line_number() {
         assert_eq!(
-            block("N1234 G1 X0"),
+            block("N1234 G1 X10"),
             Ok((
-                "G1 X0",
+                "",
                 Block {
                     block_delete: false,
-                    line_number: Some(1234),
-                    tokens: Vec::new()
+                    tokens: vec![
+                        Token::LineNumber(1234u32),
+                        Token::Motion(Motion::Feed),
+                        Token::Coord(Coord::with_x(10.0))
+                    ]
                 }
             ))
         );
@@ -75,13 +75,17 @@ mod tests {
     #[test]
     fn line_number_and_block_delete() {
         assert_eq!(
-            block("/ N1234 G1 X0"),
+            block("/ N1234 G1 X10"),
             Ok((
-                "G1 X0",
+                "",
                 Block {
                     block_delete: true,
-                    line_number: Some(1234),
-                    tokens: Vec::new()
+                    tokens: vec![
+                        Token::BlockDelete,
+                        Token::LineNumber(1234u32),
+                        Token::Motion(Motion::Feed),
+                        Token::Coord(Coord::with_x(10.0))
+                    ]
                 }
             ))
         );
