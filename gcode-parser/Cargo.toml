@@ -15,6 +15,10 @@ harness = false
 name = "coord"
 harness = false
 
+[[bench]]
+name = "comment"
+harness = false
+
 [dependencies]
 nom = "5.1.1"
 

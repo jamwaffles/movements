@@ -1,5 +1,6 @@
 #![deny(intra_doc_link_resolution_failure)]
 
+pub mod comment;
 pub mod coord;
 pub mod word;
 
