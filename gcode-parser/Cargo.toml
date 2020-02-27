@@ -19,6 +19,10 @@ harness = false
 name = "comment"
 harness = false
 
+[[bench]]
+name = "block"
+harness = false
+
 [dependencies]
 nom = "5.1.1"
 
