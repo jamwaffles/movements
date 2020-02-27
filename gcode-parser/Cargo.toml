@@ -23,10 +23,6 @@ harness = false
 name = "block"
 harness = false
 
-[[bench]]
-name = "plane_select"
-harness = false
-
 [dependencies]
 nom = "5.1.1"
 
