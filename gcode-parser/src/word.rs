@@ -41,7 +41,7 @@ where
 pub fn word<'a, V, E>(search: char) -> impl Fn(&'a str) -> IResult<&'a str, Word<V>, E>
 where
     E: ParseError<&'a str>,
-    V: FromStr + Default,
+    V: FromStr,
 {
     verify(
         map_res::<_, _, _, _, E, _, _>(
