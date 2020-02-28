@@ -1,5 +1,4 @@
-use crate::token;
-use crate::Token;
+use crate::token::{token, Token};
 use nom::character::complete::space0;
 use nom::multi::many0;
 use nom::sequence::terminated;
