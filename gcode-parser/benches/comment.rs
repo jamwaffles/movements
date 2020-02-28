@@ -1,15 +1,19 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use gcode_parser::coord::coord;
+use gcode_parser::{coord::coord, ParseInput};
 
 fn comment_eol(c: &mut Criterion) {
     c.bench_function("parens comment", |b| {
-        b.iter(|| coord::<()>(black_box("( hello my name is bobby beans )")))
+        b.iter(|| {
+            coord::<()>(black_box(ParseInput::new(
+                "( hello my name is bobby beans )",
+            )))
+        })
     });
 }
 
 fn comment_parens(c: &mut Criterion) {
     c.bench_function("eol comment", |b| {
-        b.iter(|| coord::<()>(black_box("; hello my name is bobby beans")))
+        b.iter(|| coord::<()>(black_box(ParseInput::new("; hello my name is bobby beans"))))
     });
 }
 

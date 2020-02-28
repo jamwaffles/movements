@@ -4,10 +4,12 @@ use crate::block::block;
 use crate::block::Block;
 use nom::character::complete::line_ending;
 use nom::multi::separated_list;
+use nom_locate::LocatedSpan;
 
 pub mod block;
 pub mod comment;
 pub mod coord;
+mod macros;
 pub mod motion;
 pub mod non_modal;
 pub mod plane_select;
@@ -16,18 +18,23 @@ pub mod token;
 pub mod units;
 pub mod word;
 
-pub struct Program {
-    blocks: Vec<Block>,
+pub type ParseInput<'a> = LocatedSpan<&'a str>;
+
+pub struct Program<'a> {
+    text: ParseInput<'a>,
+
+    blocks: Vec<Block<'a>>,
 }
 
-impl Program {
-    pub fn from_str(i: &str) -> Result<Self, ()> {
-        let (i, blocks) = separated_list(line_ending, block)(i).map_err(|e| ())?;
+impl<'a> Program<'a> {
+    pub fn from_str(i: ParseInput<'a>) -> Result<Self, ()> {
+        // TODO: Better error handling
+        let (i, blocks) = separated_list(line_ending, block)(i).map_err(|_e| ())?;
 
-        if !i.is_empty() {
+        if !i.fragment().is_empty() {
             Err(())
         } else {
-            Ok(Self { blocks })
+            Ok(Self { blocks, text: i })
         }
     }
 }

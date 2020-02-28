@@ -1,6 +1,7 @@
 //! Gcodes from [modal group 6 (units)](http://linuxcnc.org/docs/html/gcode/overview.html#_modal_groups)
 
 use crate::word::word;
+use crate::ParseInput;
 use nom::combinator::map_opt;
 use nom::IResult;
 use std::convert::{TryFrom, TryInto};
@@ -26,17 +27,21 @@ impl TryFrom<u8> for Units {
     }
 }
 
-pub fn units(i: &str) -> IResult<&str, Units> {
+pub fn units(i: ParseInput) -> IResult<ParseInput, Units> {
     map_opt(word::<u8, _>('G'), |word| word.value.try_into().ok())(i)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rem;
 
     #[test]
     fn parse_units() {
-        assert_eq!(units("G20"), Ok(("", Units::Inch)));
-        assert_eq!(units("G21"), Ok(("", Units::Mm)));
+        assert_eq!(
+            units(ParseInput::new("G20")),
+            Ok((rem!("", 3), Units::Inch))
+        );
+        assert_eq!(units(ParseInput::new("G21")), Ok((rem!("", 3), Units::Mm)));
     }
 }

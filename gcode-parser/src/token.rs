@@ -6,14 +6,25 @@ use crate::plane_select::{plane_select, PlaneSelect};
 use crate::spindle::{spindle, Spindle};
 use crate::units::{units, Units};
 use crate::word::word;
+use crate::ParseInput;
 use nom::branch::alt;
 use nom::character::complete::char;
 use nom::combinator::map;
 use nom::combinator::verify;
 use nom::IResult;
+use nom_locate::position;
 
 #[derive(Debug, PartialEq)]
-pub enum Token {
+pub struct Token<'a> {
+    pub start_pos: ParseInput<'a>,
+
+    pub end_pos: ParseInput<'a>,
+
+    pub token: TokenType,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum TokenType {
     /// Block delete `/` character
     BlockDelete,
 
@@ -42,38 +53,65 @@ pub enum Token {
     Spindle(Spindle),
 }
 
-pub fn token(i: &str) -> IResult<&str, Token> {
-    alt((
-        map(char('/'), |_| Token::BlockDelete),
-        map(word('N'), |w| Token::LineNumber(w.value)),
-        map(word('T'), |w| Token::Tool(w.value)),
+// TODO: Rename to `command`?
+pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
+    let (i, start_pos) = position(i)?;
+
+    let (i, token_type) = alt((
+        map(char('/'), |_| TokenType::BlockDelete),
+        map(word('N'), |w| TokenType::LineNumber(w.value)),
+        map(word('T'), |w| TokenType::Tool(w.value)),
         map(
             verify(word::<f32, _>('F'), |w| w.value.is_sign_positive()),
-            |w| Token::FeedRate(w.value),
+            |w| TokenType::FeedRate(w.value),
         ),
-        map(motion, Token::Motion),
-        map(coord, Token::Coord),
-        map(plane_select, Token::PlaneSelect),
-        map(units, Token::Units),
-        map(spindle, Token::Spindle),
-    ))(i)
+        map(motion, TokenType::Motion),
+        map(coord, TokenType::Coord),
+        map(plane_select, TokenType::PlaneSelect),
+        map(units, TokenType::Units),
+        map(spindle, TokenType::Spindle),
+    ))(i)?;
+
+    let (i, end_pos) = position(i)?;
+
+    Ok((
+        i,
+        Token {
+            start_pos,
+            end_pos,
+            token: token_type,
+        },
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rem;
     use nom::error::ErrorKind;
     use nom::Err::Error;
 
     #[test]
     fn invalid_tool_numbers() {
-        assert_eq!(token("T-2"), Err(Error(("-2", ErrorKind::MapRes))));
-        assert_eq!(token("T1.2"), Err(Error(("1.2", ErrorKind::MapRes))));
+        assert_eq!(
+            token(ParseInput::new("T-2")),
+            Err(Error((rem!("-2", 1), ErrorKind::MapRes)))
+        );
+        assert_eq!(
+            token(ParseInput::new("T1.2")),
+            Err(Error((rem!("1.2", 1), ErrorKind::MapRes)))
+        );
     }
 
     #[test]
     fn negative_feed() {
-        assert_eq!(token("F-0.0"), Err(Error(("-0.0", ErrorKind::MapRes))));
-        assert_eq!(token("F-102"), Err(Error(("-102", ErrorKind::MapRes))));
+        assert_eq!(
+            token(ParseInput::new("F-0.0")),
+            Err(Error((rem!("-0.0", 1), ErrorKind::MapRes)))
+        );
+        assert_eq!(
+            token(ParseInput::new("F-102")),
+            Err(Error((rem!("-102", 1), ErrorKind::MapRes)))
+        );
     }
 }

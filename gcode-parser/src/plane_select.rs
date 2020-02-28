@@ -1,6 +1,7 @@
 //! Gcodes from [modal group 2 (plane select)](http://linuxcnc.org/docs/html/gcode/overview.html#_modal_groups)
 
 use crate::word::word;
+use crate::ParseInput;
 use nom::combinator::map_opt;
 use nom::IResult;
 use std::convert::{TryFrom, TryInto};
@@ -42,21 +43,28 @@ impl TryFrom<String> for PlaneSelect {
     }
 }
 
-pub fn plane_select(i: &str) -> IResult<&str, PlaneSelect> {
+pub fn plane_select(i: ParseInput) -> IResult<ParseInput, PlaneSelect> {
     map_opt(word::<String, _>('G'), |word| word.value.try_into().ok())(i)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rem;
 
     #[test]
     fn xy_plane_select() {
-        assert_eq!(plane_select("G17"), Ok(("", PlaneSelect::XY)));
+        assert_eq!(
+            plane_select(ParseInput::new("G17")),
+            Ok((rem!("", 3), PlaneSelect::XY))
+        );
     }
 
     #[test]
     fn extra() {
-        assert_eq!(plane_select("G17.1"), Ok(("", PlaneSelect::UV)));
+        assert_eq!(
+            plane_select(ParseInput::new("G17.1")),
+            Ok((rem!("", 5), PlaneSelect::UV))
+        );
     }
 }

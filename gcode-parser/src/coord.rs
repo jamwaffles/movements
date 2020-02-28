@@ -1,4 +1,5 @@
 use crate::word::word;
+use crate::ParseInput;
 use nom::branch::alt;
 use nom::character::complete::space0;
 use nom::error::ParseError;
@@ -45,9 +46,9 @@ impl Coord {
 }
 
 /// Parse a coordinate
-pub fn coord<'a, E>(i: &'a str) -> IResult<&'a str, Coord, E>
+pub fn coord<'a, E>(i: ParseInput<'a>) -> IResult<ParseInput<'a>, Coord, E>
 where
-    E: ParseError<&'a str>,
+    E: ParseError<ParseInput<'a>>,
 {
     let parser = terminated::<_, _, _, E, _, _>(
         alt((
@@ -120,29 +121,36 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rem;
     use nom::error::ErrorKind;
     use nom::multi::many1;
     use nom::Err::Error;
 
     #[test]
     fn empty() {
-        assert_eq!(coord(""), Err(Error(("", ErrorKind::Eof))));
+        assert_eq!(
+            coord(ParseInput::new("")),
+            Err(Error((rem!(""), ErrorKind::Eof)))
+        );
     }
 
     #[test]
     fn full() {
         assert_eq!(
-            coord::<()>("X1 Y2 Z3 A4 B5 C6 U7 V8 W9"),
-            Ok(("", Coord::all(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)))
+            coord::<()>(ParseInput::new("X1 Y2 Z3 A4 B5 C6 U7 V8 W9")),
+            Ok((
+                rem!("", 26),
+                Coord::all(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)
+            ))
         );
     }
 
     #[test]
     fn partial() {
         assert_eq!(
-            coord::<()>("X1 Y2 V8 W9"),
+            coord::<()>(ParseInput::new("X1 Y2 V8 W9")),
             Ok((
-                "",
+                rem!("", 11),
                 Coord {
                     x: Some(1.0),
                     y: Some(2.0),
@@ -157,17 +165,20 @@ mod tests {
     #[test]
     fn random_order() {
         assert_eq!(
-            coord::<()>("U7 C6 Y2 X1 A4 B5 Z3 W9 V8"),
-            Ok(("", Coord::all(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)))
+            coord::<()>(ParseInput::new("U7 C6 Y2 X1 A4 B5 Z3 W9 V8")),
+            Ok((
+                rem!("", 26),
+                Coord::all(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0)
+            ))
         );
     }
 
     #[test]
     fn no_repeats() {
         assert_eq!(
-            coord::<()>("X1 Y2 X3"),
+            coord::<()>(ParseInput::new("X1 Y2 X3")),
             Ok((
-                "X3",
+                rem!("X3", 6),
                 Coord {
                     x: Some(1.0),
                     y: Some(2.0),
@@ -180,9 +191,9 @@ mod tests {
     #[test]
     fn multi() {
         assert_eq!(
-            many1::<_, _, (), _>(coord)("X1 Y2 X3"),
+            many1::<_, _, (), _>(coord)(ParseInput::new("X1 Y2 X3")),
             Ok((
-                "",
+                rem!("", 8),
                 vec![
                     Coord {
                         x: Some(1.0),

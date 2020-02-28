@@ -1,3 +1,4 @@
+use crate::ParseInput;
 use nom::branch::alt;
 use nom::bytes::complete::is_not;
 use nom::character::complete::char;
@@ -23,18 +24,20 @@ pub struct Comment {
     comment_type: CommentType,
 }
 
-pub fn comment<'a>(i: &'a str) -> IResult<&'a str, Comment> {
+pub fn comment(i: ParseInput) -> IResult<ParseInput, Comment> {
     alt((
         map(
             delimited(char('('), is_not(")"), char(')')),
-            |text: &str| Comment {
-                text: text.trim().to_string(),
+            |text: ParseInput| Comment {
+                text: text.fragment().trim().to_string(),
                 comment_type: CommentType::Parens,
             },
         ),
-        map(preceded(char(';'), not_line_ending), |text: &str| Comment {
-            text: text.trim().to_string(),
-            comment_type: CommentType::LineEnd,
+        map(preceded(char(';'), not_line_ending), |text: ParseInput| {
+            Comment {
+                text: text.fragment().trim().to_string(),
+                comment_type: CommentType::LineEnd,
+            }
         }),
     ))(i)
 }
@@ -42,13 +45,14 @@ pub fn comment<'a>(i: &'a str) -> IResult<&'a str, Comment> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::rem;
 
     #[test]
     fn parens_comment() {
         assert_eq!(
-            comment("( hello world )"),
+            comment(ParseInput::new("( hello world )")),
             Ok((
-                "",
+                rem!("", 15),
                 Comment {
                     text: "hello world".to_string(),
                     comment_type: CommentType::Parens
@@ -60,9 +64,9 @@ mod tests {
     #[test]
     fn line_ending_comment() {
         assert_eq!(
-            comment("; hello world"),
+            comment(ParseInput::new("; hello world")),
             Ok((
-                "",
+                rem!("", 13),
                 Comment {
                     text: "hello world".to_string(),
                     comment_type: CommentType::LineEnd
