@@ -23,6 +23,10 @@ harness = false
 name = "block"
 harness = false
 
+[[bench]]
+name = "program"
+harness = false
+
 [dependencies]
 nom = "5.1.1"
 nom_locate = "2.0.0"
