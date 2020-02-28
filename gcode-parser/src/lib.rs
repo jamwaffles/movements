@@ -4,6 +4,7 @@ pub mod block;
 pub mod comment;
 pub mod coord;
 pub mod motion;
+pub mod non_modal;
 pub mod plane_select;
 pub mod spindle;
 pub mod units;
