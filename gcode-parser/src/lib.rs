@@ -21,13 +21,13 @@ pub mod word;
 
 pub type ParseInput<'a> = LocatedSpan<&'a str>;
 
-pub struct Program<'a> {
+pub struct GcodeProgram<'a> {
     text: ParseInput<'a>,
 
     blocks: Vec<Block<'a>>,
 }
 
-impl<'a> Program<'a> {
+impl<'a> GcodeProgram<'a> {
     pub fn from_str(i: ParseInput<'a>) -> Result<Self, ()> {
         // TODO: Better error handling
         let (i, blocks) = separated_list(line_ending, block)(i).map_err(|_e| ())?;

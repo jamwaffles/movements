@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use gcode_parser::{ParseInput, Program};
+use gcode_parser::{GcodeProgram, ParseInput};
 
 static PROGRAM: &'static str = r#"G54
 G21
@@ -20,7 +20,7 @@ fn program(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(PROGRAM.len() as u64));
 
     group.bench_function("basic program", |b| {
-        b.iter(|| Program::from_str(black_box(ParseInput::new(PROGRAM))))
+        b.iter(|| GcodeProgram::from_str(black_box(ParseInput::new(PROGRAM))))
     });
 }
 
