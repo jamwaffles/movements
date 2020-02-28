@@ -4,6 +4,8 @@ use crate::motion::motion;
 use crate::motion::Motion;
 use crate::plane_select::{plane_select, PlaneSelect};
 use crate::spindle::{spindle, Spindle};
+use crate::stopping::stopping;
+use crate::stopping::Stopping;
 use crate::units::{units, Units};
 use crate::word::word;
 use crate::ParseInput;
@@ -51,6 +53,9 @@ pub enum TokenType {
 
     /// Spindle
     Spindle(Spindle),
+
+    /// Stopping
+    Stopping(Stopping),
 }
 
 // TODO: Rename to `command`?
@@ -70,6 +75,7 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
         map(plane_select, TokenType::PlaneSelect),
         map(units, TokenType::Units),
         map(spindle, TokenType::Spindle),
+        map(stopping, TokenType::Stopping),
     ))(i)?;
 
     let (i, end_pos) = position(i)?;

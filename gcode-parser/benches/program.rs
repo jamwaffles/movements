@@ -12,7 +12,8 @@ G1 z-5
 G1 x0 y0 z0
 g0 z0
 g0 z500
-m5"#;
+m5
+m2"#;
 
 fn program(c: &mut Criterion) {
     let mut group = c.benchmark_group("programs");

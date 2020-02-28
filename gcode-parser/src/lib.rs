@@ -15,6 +15,7 @@ pub mod motion;
 pub mod non_modal;
 pub mod plane_select;
 pub mod spindle;
+pub mod stopping;
 pub mod token;
 pub mod units;
 pub mod word;
