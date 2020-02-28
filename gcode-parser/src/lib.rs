@@ -41,12 +41,12 @@ impl<'a> GcodeProgram<'a> {
     }
 
     /// Get an iterator over every block (line) in the program
-    pub fn block_iter(&self) -> impl Iterator<Item = &Block> {
+    pub fn block_iter(&self) -> impl DoubleEndedIterator<Item = &Block> {
         self.blocks.iter()
     }
 
     /// Get an iterator over every token in the program
-    pub fn token_iter(&self) -> impl Iterator<Item = &Token> {
+    pub fn token_iter(&self) -> impl DoubleEndedIterator<Item = &Token> {
         self.blocks.iter().map(|b| b.tokens.iter()).flatten()
     }
 }
