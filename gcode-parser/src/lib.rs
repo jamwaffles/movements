@@ -1,10 +1,14 @@
 #![deny(intra_doc_link_resolution_failure)]
 
 use crate::block::block;
-use crate::block::Block;
-use crate::token::Token;
+pub use crate::block::Block;
+pub use crate::token::Token;
+pub use crate::token::TokenType;
 use nom::character::complete::line_ending;
+use nom::character::complete::multispace0;
+use nom::character::complete::space0;
 use nom::multi::separated_list;
+use nom::sequence::delimited;
 use nom_locate::LocatedSpan;
 
 pub mod block;
@@ -20,23 +24,34 @@ pub mod token;
 pub mod units;
 pub mod word;
 
+pub mod tokens {
+    pub use crate::stopping::Stopping;
+}
+
 pub type ParseInput<'a> = LocatedSpan<&'a str>;
 
 pub struct GcodeProgram<'a> {
-    text: ParseInput<'a>,
+    text: &'a str,
 
     blocks: Vec<Block<'a>>,
 }
 
 impl<'a> GcodeProgram<'a> {
-    pub fn from_str(i: ParseInput<'a>) -> Result<Self, ()> {
+    pub fn from_str(text: &'a str) -> Result<Self, ()> {
+        let i = ParseInput::new(text);
+
+        let (i, blocks) = delimited(
+            multispace0,
+            separated_list(line_ending, delimited(space0, block, space0)),
+            multispace0,
+        )(i)
         // TODO: Better error handling
-        let (i, blocks) = separated_list(line_ending, block)(i).map_err(|_e| ())?;
+        .map_err(|e| println!("{:?}", e))?;
 
         if !i.fragment().is_empty() {
             Err(())
         } else {
-            Ok(Self { blocks, text: i })
+            Ok(Self { blocks, text })
         }
     }
 
@@ -48,5 +63,51 @@ impl<'a> GcodeProgram<'a> {
     /// Get an iterator over every token in the program
     pub fn token_iter(&self) -> impl DoubleEndedIterator<Item = &Token> {
         self.blocks.iter().map(|b| b.tokens.iter()).flatten()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tokens::Stopping;
+
+    #[test]
+    fn whitespace() {
+        let program = GcodeProgram::from_str(
+            r#"
+            F500
+
+        M2
+        "#,
+        )
+        .unwrap();
+
+        assert_eq!(
+            program.block_iter().collect::<Vec<_>>(),
+            vec![
+                &Block {
+                    block_delete: false,
+                    tokens: vec![tok!(TokenType::FeedRate(500.0), 13, 17, 2, 2),]
+                },
+                &Block {
+                    block_delete: false,
+                    tokens: vec![]
+                },
+                &Block {
+                    block_delete: false,
+                    tokens: vec![tok!(
+                        TokenType::Stopping(Stopping::EndProgram),
+                        27,
+                        29,
+                        4,
+                        4
+                    )]
+                },
+                &Block {
+                    block_delete: false,
+                    tokens: vec![]
+                },
+            ]
+        )
     }
 }
