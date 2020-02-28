@@ -2,6 +2,7 @@
 
 use crate::block::block;
 use crate::block::Block;
+use crate::token::Token;
 use nom::character::complete::line_ending;
 use nom::multi::separated_list;
 use nom_locate::LocatedSpan;
@@ -36,5 +37,15 @@ impl<'a> Program<'a> {
         } else {
             Ok(Self { blocks, text: i })
         }
+    }
+
+    /// Get an iterator over every block (line) in the program
+    pub fn block_iter(&self) -> impl Iterator<Item = &Block> {
+        self.blocks.iter()
+    }
+
+    /// Get an iterator over every token in the program
+    pub fn token_iter(&self) -> impl Iterator<Item = &Token> {
+        self.blocks.iter().map(|b| b.tokens.iter()).flatten()
     }
 }

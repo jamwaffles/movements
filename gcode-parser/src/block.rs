@@ -8,10 +8,10 @@ use nom::IResult;
 #[derive(Debug, PartialEq)]
 pub struct Block<'a> {
     /// Whether the line has a leading `/` block delete character present
-    block_delete: bool,
+    pub block_delete: bool,
 
     /// All tokens in this block, including optional block delete and line numbers
-    tokens: Vec<Token<'a>>,
+    pub tokens: Vec<Token<'a>>,
 }
 
 /// Parse a block (single line of gcode)
