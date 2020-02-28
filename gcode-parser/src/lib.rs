@@ -5,6 +5,7 @@ pub mod comment;
 pub mod coord;
 pub mod motion;
 pub mod plane_select;
+pub mod spindle;
 pub mod units;
 pub mod word;
 
@@ -13,6 +14,7 @@ use crate::coord::Coord;
 use crate::motion::motion;
 use crate::motion::Motion;
 use crate::plane_select::{plane_select, PlaneSelect};
+use crate::spindle::{spindle, Spindle};
 use crate::units::{units, Units};
 use crate::word::word;
 use nom::branch::alt;
@@ -46,6 +48,9 @@ pub enum Token {
 
     /// Units
     Units(Units),
+
+    /// Spindle
+    Spindle(Spindle),
 }
 
 pub fn token(i: &str) -> IResult<&str, Token> {
@@ -61,6 +66,7 @@ pub fn token(i: &str) -> IResult<&str, Token> {
         map(coord, Token::Coord),
         map(plane_select, Token::PlaneSelect),
         map(units, Token::Units),
+        map(spindle, Token::Spindle),
     ))(i)
 }
 
