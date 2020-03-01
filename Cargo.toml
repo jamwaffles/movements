@@ -1,4 +1,8 @@
 [workspace]
 members = [
-    "gcode-parser"
+    "gcode-parser",
+    "gcode-validator"
 ]
+
+[patch.crates-io]
+gcode-parser = { path = "gcode-parser" }
