@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "gcode-parser",
-    "gcode-validator"
+    "gcode-validator",
+    "gcode-interpreter"
 ]
 
 [patch.crates-io]
