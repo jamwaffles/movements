@@ -8,6 +8,7 @@ use crate::stopping::stopping;
 use crate::stopping::Stopping;
 use crate::units::{units, Units};
 use crate::word::word;
+use crate::Location;
 use crate::ParseInput;
 use nom::branch::alt;
 use nom::character::complete::char;
@@ -16,11 +17,11 @@ use nom::combinator::verify;
 use nom::IResult;
 use nom_locate::position;
 
-#[derive(Debug, PartialEq)]
-pub struct Token<'a> {
-    pub start_pos: ParseInput<'a>,
+#[derive(Debug, PartialEq, Clone)]
+pub struct Token {
+    pub start_pos: Location,
 
-    pub end_pos: ParseInput<'a>,
+    pub end_pos: Location,
 
     pub token: TokenType,
 }
@@ -83,8 +84,8 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
     Ok((
         i,
         Token {
-            start_pos,
-            end_pos,
+            start_pos: start_pos.into(),
+            end_pos: end_pos.into(),
             token: token_type,
         },
     ))

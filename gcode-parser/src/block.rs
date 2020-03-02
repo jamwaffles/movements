@@ -5,13 +5,13 @@ use nom::multi::many0;
 use nom::sequence::terminated;
 use nom::IResult;
 
-#[derive(Debug, PartialEq)]
-pub struct Block<'a> {
+#[derive(Debug, Clone, PartialEq)]
+pub struct Block {
     /// Whether the line has a leading `/` block delete character present
     pub block_delete: bool,
 
     /// All tokens in this block, including optional block delete and line numbers
-    pub tokens: Vec<Token<'a>>,
+    pub tokens: Vec<Token>,
 }
 
 /// Parse a block (single line of gcode)

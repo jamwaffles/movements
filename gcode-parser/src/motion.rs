@@ -6,7 +6,7 @@ use nom::combinator::map_opt;
 use nom::IResult;
 use std::convert::{TryFrom, TryInto};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum Motion {
     /// G0
     Rapid,

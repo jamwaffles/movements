@@ -30,10 +30,11 @@ pub mod tokens {
 
 pub type ParseInput<'a> = LocatedSpan<&'a str>;
 
+#[derive(Debug, Clone)]
 pub struct GcodeProgram<'a> {
     text: &'a str,
 
-    blocks: Vec<Block<'a>>,
+    pub blocks: Vec<Block>,
 }
 
 impl<'a> GcodeProgram<'a> {
@@ -63,6 +64,24 @@ impl<'a> GcodeProgram<'a> {
     /// Get an iterator over every token in the program
     pub fn token_iter(&self) -> impl DoubleEndedIterator<Item = &Token> {
         self.blocks.iter().map(|b| b.tokens.iter()).flatten()
+    }
+}
+
+/// A span of text within the program
+#[derive(Debug, Clone, PartialEq)]
+pub struct Location {
+    offset: usize,
+    line: u32,
+    column: usize,
+}
+
+impl From<ParseInput<'_>> for Location {
+    fn from(other: ParseInput) -> Self {
+        Self {
+            offset: other.location_offset(),
+            line: other.location_line(),
+            column: other.get_utf8_column(),
+        }
     }
 }
 

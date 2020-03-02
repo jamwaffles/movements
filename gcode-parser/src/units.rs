@@ -6,7 +6,7 @@ use nom::combinator::map_opt;
 use nom::IResult;
 use std::convert::{TryFrom, TryInto};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Units {
     /// G20
     Inch,
