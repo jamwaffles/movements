@@ -26,7 +26,7 @@ pub struct Token {
     pub token: TokenType,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum TokenType {
     /// Block delete `/` character
     BlockDelete,

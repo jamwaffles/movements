@@ -4,6 +4,8 @@ use crate::block::block;
 pub use crate::block::Block;
 pub use crate::token::Token;
 pub use crate::token::TokenType;
+use nalgebra::VectorN;
+use nalgebra::U9;
 use nom::character::complete::line_ending;
 use nom::character::complete::multispace0;
 use nom::character::complete::space0;
@@ -28,11 +30,13 @@ pub mod tokens {
     pub use crate::stopping::Stopping;
 }
 
+pub type Axes = VectorN<f32, U9>;
+
 pub type ParseInput<'a> = LocatedSpan<&'a str>;
 
 #[derive(Debug, Clone)]
 pub struct GcodeProgram<'a> {
-    text: &'a str,
+    pub text: &'a str,
 
     pub blocks: Vec<Block>,
 }

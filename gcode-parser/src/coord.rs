@@ -1,22 +1,48 @@
 use crate::word::word;
+use crate::Axes;
 use crate::ParseInput;
+use nalgebra::VectorN;
+use nalgebra::U9;
 use nom::branch::alt;
 use nom::character::complete::space0;
 use nom::error::ParseError;
 use nom::sequence::terminated;
 use nom::{error::ErrorKind, Err, IResult};
+use std::ops::Index;
 
 #[derive(Debug, PartialEq, Default, Clone)]
 pub struct Coord {
-    x: Option<f32>,
-    y: Option<f32>,
-    z: Option<f32>,
-    a: Option<f32>,
-    b: Option<f32>,
-    c: Option<f32>,
-    u: Option<f32>,
-    v: Option<f32>,
-    w: Option<f32>,
+    pub x: Option<f32>,
+    pub y: Option<f32>,
+    pub z: Option<f32>,
+    pub a: Option<f32>,
+    pub b: Option<f32>,
+    pub c: Option<f32>,
+    pub u: Option<f32>,
+    pub v: Option<f32>,
+    pub w: Option<f32>,
+}
+
+impl Index<usize> for Coord {
+    type Output = Option<f32>;
+
+    fn index(&self, idx: usize) -> &Self::Output {
+        match idx {
+            0 => &self.x,
+            1 => &self.y,
+            2 => &self.z,
+            3 => &self.a,
+            4 => &self.b,
+            5 => &self.c,
+            6 => &self.u,
+            7 => &self.v,
+            8 => &self.w,
+            i => panic!(
+                "Index {} is out of of bounds for coodinate. Must be in range 0-8.",
+                i
+            ),
+        }
+    }
 }
 
 impl Coord {
@@ -33,6 +59,13 @@ impl Coord {
             v: Some(v),
             w: Some(w),
         }
+    }
+
+    /// Convert the coordinate into a Nalgbra object
+    ///
+    /// Any components that are `None` will be set to `0.0`
+    pub fn into_axes(self) -> Axes {
+        Axes::from_fn(|i, _| self[i].unwrap_or(0.0))
     }
 }
 
