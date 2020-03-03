@@ -27,6 +27,7 @@ pub mod units;
 pub mod word;
 
 pub mod tokens {
+    pub use crate::motion::Motion;
     pub use crate::stopping::Stopping;
 }
 

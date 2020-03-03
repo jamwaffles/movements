@@ -19,9 +19,9 @@ pub struct GcodeInterpreter<'a> {
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct State {
     /// G group 0
-    motion: Motion,
+    pub motion: Motion,
 
-    next_position: Axes,
+    pub next_position: Axes,
 }
 
 impl Default for State {
@@ -49,16 +49,21 @@ impl<'a> GcodeInterpreter<'a> {
         }
     }
 
-    pub fn next_state(&mut self) -> Option<Result<&State, String>> {
-        self.blocks.next().map(move |block| {
-            self.state = self.new_state_from_block(block)?;
-
-            println!("{:#?}", self.state);
-
-            Ok(&self.state)
-        })
+    pub fn block_iter(&self) -> BlockIterator {
+        BlockIterator {
+            state: self.state,
+            blocks: self.program.blocks.iter(),
+        }
     }
+}
 
+pub struct BlockIterator<'a> {
+    state: State,
+
+    blocks: Iter<'a, Block>,
+}
+
+impl<'a> BlockIterator<'a> {
     fn new_state_from_block(&mut self, block: &Block) -> Result<State, String> {
         let mut block_actions = BlockCommands::default();
 
@@ -92,6 +97,18 @@ impl<'a> GcodeInterpreter<'a> {
     }
 }
 
+impl<'a> Iterator for BlockIterator<'a> {
+    type Item = Result<State, String>;
+
+    fn next(&mut self) -> Option<Result<State, String>> {
+        self.blocks.next().map(move |block| {
+            self.state = self.new_state_from_block(block)?;
+
+            Ok(self.state)
+        })
+    }
+}
+
 pub fn merge_vector9_and_coord(current: &Axes, coord: &Coord) -> Axes {
     let mut new = current.clone();
     let coord_c = coord.clone();
@@ -117,16 +134,18 @@ mod tests {
     fn rapid() {
         let program = GcodeProgram::from_str("G0").unwrap();
 
-        let mut interp = GcodeInterpreter::new(&program);
+        let interp = GcodeInterpreter::new(&program);
+
+        let mut blocks = interp.block_iter();
 
         assert_eq!(
-            interp.next_state(),
-            Some(Ok(&State {
+            blocks.next(),
+            Some(Ok(State {
                 motion: Motion::Rapid,
                 ..State::default()
             }))
         );
-        assert_eq!(interp.next_state(), None);
+        assert_eq!(blocks.next(), None);
     }
 
     #[test]
@@ -142,64 +161,66 @@ mod tests {
         )
         .unwrap();
 
-        let mut interp = GcodeInterpreter::new(&program);
+        let interp = GcodeInterpreter::new(&program);
+
+        let mut blocks = interp.block_iter();
 
         assert_eq!(
-            interp.next_state(),
-            Some(Ok(&State {
+            blocks.next(),
+            Some(Ok(State {
                 motion: Motion::Rapid,
                 next_position: Axes::zeros()
             }))
         );
 
         assert_eq!(
-            interp.next_state(),
-            Some(Ok(&State {
+            blocks.next(),
+            Some(Ok(State {
                 motion: Motion::Rapid,
                 next_position: Axes::from([10.0, 20.0, 30.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             }))
         );
 
         assert_eq!(
-            interp.next_state(),
-            Some(Ok(&State {
+            blocks.next(),
+            Some(Ok(State {
                 motion: Motion::Rapid,
                 next_position: Axes::from([10.0, 20.0, 10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             }))
         );
 
         assert_eq!(
-            interp.next_state(),
-            Some(Ok(&State {
+            blocks.next(),
+            Some(Ok(State {
                 motion: Motion::Feed,
                 next_position: Axes::from([10.0, 20.0, -2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             }))
         );
 
         assert_eq!(
-            interp.next_state(),
-            Some(Ok(&State {
+            blocks.next(),
+            Some(Ok(State {
                 motion: Motion::Feed,
                 next_position: Axes::from([0.0, 0.0, -2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             }))
         );
 
         assert_eq!(
-            interp.next_state(),
-            Some(Ok(&State {
+            blocks.next(),
+            Some(Ok(State {
                 motion: Motion::Feed,
                 next_position: Axes::from([0.0, 0.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             }))
         );
 
         assert_eq!(
-            interp.next_state(),
-            Some(Ok(&State {
+            blocks.next(),
+            Some(Ok(State {
                 motion: Motion::Rapid,
                 next_position: Axes::from([0.0, 0.0, 30.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             }))
         );
 
-        assert_eq!(interp.next_state(), None);
+        assert_eq!(blocks.next(), None);
     }
 }
