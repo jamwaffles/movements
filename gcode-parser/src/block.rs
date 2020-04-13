@@ -43,9 +43,9 @@ mod tests {
                 Block {
                     block_delete: true,
                     tokens: vec![
-                        tok!(TokenType::BlockDelete, 0, 1),
-                        tok!(TokenType::Motion(Motion::Feed), 2, 4),
-                        tok!(TokenType::Coord(Coord::with_x(10.0)), 5, 8)
+                        tok!(TokenType::BlockDelete, offs = (0, 1)),
+                        tok!(TokenType::Motion(Motion::Feed), offs = (2, 4)),
+                        tok!(TokenType::Coord(Coord::with_x(10.0)), offs = (5, 8))
                     ]
                 }
             ))
@@ -61,9 +61,9 @@ mod tests {
                 Block {
                     block_delete: false,
                     tokens: vec![
-                        tok!(TokenType::LineNumber(1234u32), 0, 5),
-                        tok!(TokenType::Motion(Motion::Feed), 6, 8),
-                        tok!(TokenType::Coord(Coord::with_x(10.0)), 9, 12)
+                        tok!(TokenType::LineNumber(1234u32), offs = (0, 5)),
+                        tok!(TokenType::Motion(Motion::Feed), offs = (6, 8)),
+                        tok!(TokenType::Coord(Coord::with_x(10.0)), offs = (9, 12))
                     ]
                 }
             ))
@@ -79,10 +79,10 @@ mod tests {
                 Block {
                     block_delete: true,
                     tokens: vec![
-                        tok!(TokenType::BlockDelete, 0, 1),
-                        tok!(TokenType::LineNumber(1234u32), 2, 7),
-                        tok!(TokenType::Motion(Motion::Feed), 8, 10),
-                        tok!(TokenType::Coord(Coord::with_x(10.0)), 11, 14),
+                        tok!(TokenType::BlockDelete, offs = (0, 1)),
+                        tok!(TokenType::LineNumber(1234u32), offs = (2, 7)),
+                        tok!(TokenType::Motion(Motion::Feed), offs = (8, 10)),
+                        tok!(TokenType::Coord(Coord::with_x(10.0)), offs = (11, 14)),
                     ]
                 }
             ))

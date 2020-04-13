@@ -73,11 +73,28 @@ impl<'a> GcodeProgram<'a> {
 }
 
 /// A span of text within the program
+///
+/// This is used instead of nom_locate's `LocatedSpan` as it does not hold a reference to the input.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Location {
+    /// Offset from the beginning of the input
     offset: usize,
+
+    /// Line, 1-indexed
     line: u32,
+
+    /// Column, 1-indexed
     column: usize,
+}
+
+impl Location {
+    pub fn new(offset: usize, line: u32, column: usize) -> Self {
+        Self {
+            offset,
+            line,
+            column,
+        }
+    }
 }
 
 impl From<ParseInput<'_>> for Location {
@@ -97,21 +114,25 @@ mod tests {
 
     #[test]
     fn whitespace() {
-        let program = GcodeProgram::from_str(
-            r#"
+        let program_text = r#"
             F500
 
         M2
-        "#,
-        )
-        .unwrap();
+        "#;
+
+        let program = GcodeProgram::from_str(program_text).unwrap();
 
         assert_eq!(
             program.block_iter().collect::<Vec<_>>(),
             vec![
                 &Block {
                     block_delete: false,
-                    tokens: vec![tok!(TokenType::FeedRate(500.0), 13, 17, 2, 2),]
+                    tokens: vec![tok!(
+                        TokenType::FeedRate(500.0),
+                        offs = (13, 17),
+                        line = (2, 2),
+                        col = (13, 17)
+                    ),]
                 },
                 &Block {
                     block_delete: false,
@@ -121,10 +142,9 @@ mod tests {
                     block_delete: false,
                     tokens: vec![tok!(
                         TokenType::Stopping(Stopping::EndProgram),
-                        27,
-                        29,
-                        4,
-                        4
+                        offs = (27, 29),
+                        line = (4, 4),
+                        col = (9, 11)
                     )]
                 },
                 &Block {
