@@ -16,6 +16,7 @@ use nom_locate::LocatedSpan;
 pub mod block;
 pub mod comment;
 pub mod coord;
+pub mod distance_mode;
 mod macros;
 pub mod motion;
 pub mod non_modal;

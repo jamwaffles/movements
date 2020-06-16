@@ -1,5 +1,7 @@
 use crate::coord::coord;
 use crate::coord::Coord;
+use crate::distance_mode::distance_mode;
+use crate::distance_mode::DistanceMode;
 use crate::motion::motion;
 use crate::motion::Motion;
 use crate::plane_select::{plane_select, PlaneSelect};
@@ -57,6 +59,9 @@ pub enum TokenType {
 
     /// Stopping
     Stopping(Stopping),
+
+    /// Distance mode
+    DistanceMode(DistanceMode),
 }
 
 // TODO: Rename to `command`?
@@ -70,6 +75,7 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
         map(units, TokenType::Units),
         map(spindle, TokenType::Spindle),
         map(stopping, TokenType::Stopping),
+        map(distance_mode, TokenType::DistanceMode),
         map(char('/'), |_| TokenType::BlockDelete),
         map(word('N'), |w| TokenType::LineNumber(w.value)),
         map(word('T'), |w| TokenType::Tool(w.value)),
