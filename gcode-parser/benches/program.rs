@@ -21,7 +21,7 @@ fn program(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(PROGRAM.len() as u64));
 
     group.bench_function("basic program", |b| {
-        b.iter(|| GcodeProgram::from_str(black_box(ParseInput::new(PROGRAM))))
+        b.iter(|| GcodeProgram::from_str(black_box(PROGRAM)))
     });
 }
 
