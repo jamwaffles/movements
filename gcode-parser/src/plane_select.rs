@@ -2,9 +2,9 @@
 
 use crate::word::word;
 use crate::ParseInput;
-use nom::combinator::map_opt;
+use nom::combinator::map;
 use nom::IResult;
-use std::convert::{TryFrom, TryInto};
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum PlaneSelect {
@@ -27,11 +27,11 @@ pub enum PlaneSelect {
     VW,
 }
 
-impl TryFrom<String> for PlaneSelect {
-    type Error = ();
+impl FromStr for PlaneSelect {
+    type Err = ();
 
-    fn try_from(number: String) -> Result<Self, Self::Error> {
-        match number.as_str() {
+    fn from_str(number: &str) -> Result<Self, Self::Err> {
+        match number {
             "17" => Ok(Self::XY),
             "18" => Ok(Self::ZX),
             "19" => Ok(Self::YZ),
@@ -44,7 +44,7 @@ impl TryFrom<String> for PlaneSelect {
 }
 
 pub fn plane_select(i: ParseInput) -> IResult<ParseInput, PlaneSelect> {
-    map_opt(word::<String, _>('G'), |word| word.value.try_into().ok())(i)
+    map(word::<PlaneSelect, _>('G'), |word| word.value)(i)
 }
 
 #[cfg(test)]
