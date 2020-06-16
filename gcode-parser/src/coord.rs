@@ -1,12 +1,11 @@
-use crate::word::word;
 use crate::Axes;
 use crate::ParseInput;
-use nalgebra::VectorN;
-use nalgebra::U9;
-use nom::branch::alt;
+use nom::character::complete::anychar;
 use nom::character::complete::space0;
 use nom::error::ParseError;
-use nom::sequence::terminated;
+use nom::number::complete::float;
+use nom::sequence::preceded;
+use nom::sequence::separated_pair;
 use nom::{error::ErrorKind, Err, IResult};
 use std::ops::Index;
 
@@ -61,7 +60,7 @@ impl Coord {
         }
     }
 
-    /// Convert the coordinate into a Nalgbra object
+    /// Convert the coordinate into a Nalgebra object
     ///
     /// Any components that are `None` will be set to `0.0`
     pub fn into_axes(self) -> Axes {
@@ -83,71 +82,86 @@ pub fn coord<'a, E>(i: ParseInput<'a>) -> IResult<ParseInput<'a>, Coord, E>
 where
     E: ParseError<ParseInput<'a>>,
 {
-    let parser = terminated::<_, _, _, E, _, _>(
-        alt((
-            word::<f32, _>('X'),
-            word::<f32, _>('Y'),
-            word::<f32, _>('Z'),
-            word::<f32, _>('A'),
-            word::<f32, _>('B'),
-            word::<f32, _>('C'),
-            word::<f32, _>('U'),
-            word::<f32, _>('V'),
-            word::<f32, _>('W'),
-        )),
-        space0,
-    );
+    let mut c = Coord::default();
+    let mut input = i;
 
-    let mut i = i.clone();
-    let mut matched_count = 0;
-    let mut coord = Coord::default();
-
-    loop {
-        let res = parser(i.clone());
+    for _ in 0..9 {
+        let res = preceded(space0, separated_pair(anychar, space0, float))(input);
 
         match res {
-            Ok((i1, part)) => {
-                // Nothing was consumed, we're done
-                if i == i1 {
-                    return Ok((i1, coord));
+            Ok((i, (ch, value))) => {
+                match ch.to_ascii_lowercase() {
+                    'x' if c.x.is_none() => {
+                        c.x = Some(value);
+                        input = i;
+                    }
+                    'y' if c.y.is_none() => {
+                        c.y = Some(value);
+                        input = i;
+                    }
+                    'z' if c.z.is_none() => {
+                        c.z = Some(value);
+                        input = i;
+                    }
+                    //
+                    'a' if c.a.is_none() => {
+                        c.a = Some(value);
+                        input = i;
+                    }
+                    'b' if c.b.is_none() => {
+                        c.b = Some(value);
+                        input = i;
+                    }
+                    'c' if c.c.is_none() => {
+                        c.c = Some(value);
+                        input = i;
+                    }
+                    //
+                    'u' if c.u.is_none() => {
+                        c.u = Some(value);
+                        input = i;
+                    }
+                    'v' if c.v.is_none() => {
+                        c.v = Some(value);
+                        input = i;
+                    }
+                    'w' if c.w.is_none() => {
+                        c.w = Some(value);
+                        input = i;
+                    }
+                    // ---
+                    'x' if c.x.is_some() => break,
+                    'y' if c.y.is_some() => break,
+                    'z' if c.z.is_some() => break,
+                    //
+                    'a' if c.a.is_some() => break,
+                    'b' if c.b.is_some() => break,
+                    'c' if c.c.is_some() => break,
+                    //
+                    'u' if c.u.is_some() => break,
+                    'v' if c.v.is_some() => break,
+                    'w' if c.w.is_some() => break,
+
+                    _ => (),
                 }
-
-                let axis = match part.letter {
-                    'X' => &mut coord.x,
-                    'Y' => &mut coord.y,
-                    'Z' => &mut coord.z,
-                    'A' => &mut coord.a,
-                    'B' => &mut coord.b,
-                    'C' => &mut coord.c,
-                    'U' => &mut coord.u,
-                    'V' => &mut coord.v,
-                    'W' => &mut coord.w,
-                    c => panic!("Character '{}' is not a recognised axis letter", c),
-                };
-
-                // If we've already parsed this axis, we should complete and return, allowing the
-                // next coord to be parsed.
-                if axis.is_some() {
-                    return Ok((i, coord));
-                } else {
-                    *axis = Some(part.value);
-                    matched_count += 1;
-                }
-
-                // Remove the parsed characters from the input
-                i = i1;
             }
             Err(Err::Error(e)) => {
-                if matched_count == 0 {
-                    return Err(Err::Error(E::append(i, ErrorKind::ManyMN, e)));
+                if c == Coord::default() {
+                    return Err(Err::Error(E::append(input, ErrorKind::ManyMN, e)));
                 } else {
-                    return Ok((i, coord));
+                    return Ok((input, c));
                 }
             }
             Err(e) => {
                 return Err(e);
             }
         }
+    }
+
+    if c != Coord::default() {
+        Ok((input, c))
+    } else {
+        Err(Err::Error(E::from_error_kind(input, ErrorKind::ManyMN)))
     }
 }
 
@@ -211,7 +225,7 @@ mod tests {
         assert_eq!(
             coord::<()>(ParseInput::new("X1 Y2 X3")),
             Ok((
-                rem!("X3", 6),
+                rem!(" X3", 5),
                 Coord {
                     x: Some(1.0),
                     y: Some(2.0),
