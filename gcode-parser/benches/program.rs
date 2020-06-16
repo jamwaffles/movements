@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use gcode_parser::{GcodeProgram, ParseInput};
+use gcode_parser::GcodeProgram;
 
 static PROGRAM: &'static str = r#"G54
 G21

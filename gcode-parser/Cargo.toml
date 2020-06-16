@@ -27,6 +27,10 @@ harness = false
 name = "program"
 harness = false
 
+[[bench]]
+name = "files"
+harness = false
+
 [dependencies]
 nom = "5.1.1"
 nom_locate = "2.0.0"
