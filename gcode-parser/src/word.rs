@@ -46,20 +46,16 @@ where
     E: ParseError<ParseInput<'a>>,
     V: FromStr,
 {
-    verify(
-        map(
-            separated_pair(
-                anychar,
-                space0,
-                map_res(recognize_float, |s: ParseInput| s.fragment().parse::<V>()),
-            ),
-            |(letter, value)| Word {
-                letter: letter.to_ascii_uppercase(),
-                value,
-            },
+    map(
+        separated_pair(
+            verify(anychar, move |ch| ch.eq_ignore_ascii_case(&search)),
+            space0,
+            map_res(recognize_float, |s: ParseInput| s.fragment().parse::<V>()),
         ),
-        // move |w| w.letter.to_ascii_uppercase() == search.to_ascii_uppercase(),
-        move |w| w.letter.eq_ignore_ascii_case(&search),
+        |(letter, value)| Word {
+            letter: letter.to_ascii_uppercase(),
+            value,
+        },
     )
 }
 
