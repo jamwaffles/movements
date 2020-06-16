@@ -64,6 +64,12 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
     let (i, start_pos) = position(i)?;
 
     let (i, token_type) = alt((
+        map(coord, TokenType::Coord),
+        map(motion, TokenType::Motion),
+        map(plane_select, TokenType::PlaneSelect),
+        map(units, TokenType::Units),
+        map(spindle, TokenType::Spindle),
+        map(stopping, TokenType::Stopping),
         map(char('/'), |_| TokenType::BlockDelete),
         map(word('N'), |w| TokenType::LineNumber(w.value)),
         map(word('T'), |w| TokenType::Tool(w.value)),
@@ -71,12 +77,6 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
             verify(word::<f32, _>('F'), |w| w.value.is_sign_positive()),
             |w| TokenType::FeedRate(w.value),
         ),
-        map(motion, TokenType::Motion),
-        map(coord, TokenType::Coord),
-        map(plane_select, TokenType::PlaneSelect),
-        map(units, TokenType::Units),
-        map(spindle, TokenType::Spindle),
-        map(stopping, TokenType::Stopping),
     ))(i)?;
 
     let (i, end_pos) = position(i)?;
@@ -102,11 +102,11 @@ mod tests {
     fn invalid_tool_numbers() {
         assert_eq!(
             token(ParseInput::new("T-2")),
-            Err(Error((rem!("-2", 1), ErrorKind::MapRes)))
+            Err(Error((rem!("T-2"), ErrorKind::Verify)))
         );
         assert_eq!(
             token(ParseInput::new("T1.2")),
-            Err(Error((rem!("1.2", 1), ErrorKind::MapRes)))
+            Err(Error((rem!("T1.2"), ErrorKind::Verify)))
         );
     }
 
@@ -114,11 +114,11 @@ mod tests {
     fn negative_feed() {
         assert_eq!(
             token(ParseInput::new("F-0.0")),
-            Err(Error((rem!("-0.0", 1), ErrorKind::MapRes)))
+            Err(Error((rem!("F-0.0"), ErrorKind::Verify)))
         );
         assert_eq!(
             token(ParseInput::new("F-102")),
-            Err(Error((rem!("-102", 1), ErrorKind::MapRes)))
+            Err(Error((rem!("F-102"), ErrorKind::Verify)))
         );
     }
 }

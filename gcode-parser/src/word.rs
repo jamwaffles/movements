@@ -1,6 +1,7 @@
 use crate::ParseInput;
 use nom::character::complete::anychar;
 use nom::character::complete::space0;
+use nom::combinator::map;
 use nom::combinator::map_res;
 use nom::combinator::verify;
 use nom::error::ParseError;
@@ -38,7 +39,6 @@ where
     }
 }
 
-/// Parse a word
 pub fn word<'a, V, E>(
     search: char,
 ) -> impl Fn(ParseInput<'a>) -> IResult<ParseInput<'a>, Word<V>, E>
@@ -47,17 +47,15 @@ where
     V: FromStr,
 {
     verify(
-        map_res::<_, _, _, _, E, _, _>(
+        map(
             separated_pair(
                 anychar,
                 space0,
                 map_res(recognize_float, |s: ParseInput| s.fragment().parse::<V>()),
             ),
-            |(letter, value)| {
-                Ok(Word {
-                    letter: letter.to_ascii_uppercase(),
-                    value,
-                })
+            |(letter, value)| Word {
+                letter: letter.to_ascii_uppercase(),
+                value,
             },
         ),
         // move |w| w.letter.to_ascii_uppercase() == search.to_ascii_uppercase(),
