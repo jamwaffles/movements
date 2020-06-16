@@ -2,7 +2,7 @@
 
 use crate::word::word;
 use crate::ParseInput;
-use nom::combinator::map_opt;
+use nom::combinator::map_res;
 use nom::IResult;
 use std::convert::{TryFrom, TryInto};
 
@@ -28,7 +28,7 @@ impl TryFrom<u8> for Motion {
 }
 
 pub fn motion(i: ParseInput) -> IResult<ParseInput, Motion> {
-    map_opt(word::<u8, _>('G'), |word| word.value.try_into().ok())(i)
+    map_res(word::<u8, _>('G'), |word| word.value.try_into())(i)
 }
 
 #[cfg(test)]
@@ -66,11 +66,11 @@ mod tests {
     fn ignore_unknown() {
         assert_eq!(
             motion(ParseInput::new("G17")),
-            Err(Error((rem!("G17", 0), ErrorKind::MapOpt)))
+            Err(Error((rem!("G17", 0), ErrorKind::MapRes)))
         );
         assert_eq!(
             motion(ParseInput::new("G90")),
-            Err(Error((rem!("G90", 0), ErrorKind::MapOpt)))
+            Err(Error((rem!("G90", 0), ErrorKind::MapRes)))
         );
     }
 }
