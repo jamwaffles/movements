@@ -44,20 +44,68 @@ pub struct GcodeProgram<'a> {
     pub blocks: Vec<Block>,
 }
 
+pub struct ProgramParseError<'a> {
+    /// Failure point
+    failure_point: ParseInput<'a>,
+
+    /// Complete file input
+    input: ParseInput<'a>,
+}
+
+impl<'a> fmt::Display for ProgramParseError<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let whole_line = self
+            .input
+            .fragment()
+            .lines()
+            .nth(self.input.location_line() as usize);
+
+        write!(
+            f,
+            "Error on line {line}:\n\n{code}\n{marker_padding}^",
+            line = self.failure_point.location_line(),
+            code = whole_line.unwrap_or("( unknown input )"),
+            marker_padding = " ".repeat(self.failure_point.get_utf8_column() - 1)
+        )
+    }
+}
+
+impl<'a> fmt::Debug for ProgramParseError<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let all_bytes = self.input.fragment().len();
+        let remaining = self.failure_point.fragment().len();
+
+        write!(
+            f,
+            "Failed to parse program.\n\n{}\n\n{} of {} bytes remaining ({} bytes consumed)",
+            self.to_string(),
+            remaining,
+            all_bytes,
+            all_bytes - remaining
+        )
+    }
+}
+
 impl<'a> GcodeProgram<'a> {
-    pub fn from_str(text: &'a str) -> Result<Self, ()> {
-        let i = ParseInput::new(text);
+    pub fn from_str(text: &'a str) -> Result<Self, ProgramParseError> {
+        let file = ParseInput::new(text);
 
-        let (i, blocks) = delimited(
-            multispace0,
-            separated_list(line_ending, delimited(space0, block, space0)),
-            multispace0,
-        )(i)
-        // TODO: Better error handling
-        .map_err(|e| println!("{:?}", e))?;
+        let (remaining, blocks) =
+            delimited(multispace0, separated_list(line_ending, block), multispace0)(file).map_err(
+                |e| match e {
+                    nom::Err::Incomplete(_n) => unreachable!(),
+                    nom::Err::Error(e) | nom::Err::Failure(e) => ProgramParseError {
+                        failure_point: e.0,
+                        input: file,
+                    },
+                },
+            )?;
 
-        if !i.fragment().is_empty() {
-            Err(())
+        if !remaining.fragment().is_empty() {
+            Err(ProgramParseError {
+                failure_point: remaining,
+                input: file,
+            })
         } else {
             Ok(Self { blocks, text })
         }
@@ -112,7 +160,9 @@ impl From<ParseInput<'_>> for Location {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tokens::Stopping;
+    use crate::comment::{Comment, CommentType};
+    use crate::stopping::Stopping;
+    use crate::units::Units;
 
     #[test]
     fn whitespace() {
@@ -152,6 +202,57 @@ mod tests {
                 &Block {
                     block_delete: false,
                     tokens: vec![]
+                },
+            ]
+        )
+    }
+
+    #[test]
+    fn windows() {
+        let program_text = "(SuperCam Ver 2.2a SPINDLE)\r\nN1 G20\t( set inches mode - ash )";
+
+        let program = GcodeProgram::from_str(program_text).unwrap();
+
+        assert_eq!(
+            program.block_iter().collect::<Vec<_>>(),
+            vec![
+                &Block {
+                    block_delete: false,
+                    tokens: vec![tok!(
+                        TokenType::Comment(Comment::new(
+                            "SuperCam Ver 2.2a SPINDLE",
+                            CommentType::Parens
+                        )),
+                        offs = (0, 27),
+                        line = (1, 1),
+                        col = (1, 28)
+                    ),]
+                },
+                &Block {
+                    block_delete: false,
+                    tokens: vec![
+                        tok!(
+                            TokenType::LineNumber(1),
+                            offs = (29, 31),
+                            line = (2, 2),
+                            col = (1, 3)
+                        ),
+                        tok!(
+                            TokenType::Units(Units::Inch),
+                            offs = (32, 35),
+                            line = (2, 2),
+                            col = (4, 7)
+                        ),
+                        tok!(
+                            TokenType::Comment(Comment::new(
+                                "set inches mode - ash",
+                                CommentType::Parens
+                            )),
+                            offs = (36, 61),
+                            line = (2, 2),
+                            col = (8, 33)
+                        ),
+                    ]
                 },
             ]
         )
