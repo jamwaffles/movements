@@ -1,5 +1,9 @@
+use crate::comment::comment;
+use crate::comment::Comment;
 use crate::coord::coord;
 use crate::coord::Coord;
+use crate::cutter_compensation::cutter_compensation;
+use crate::cutter_compensation::CutterCompensation;
 use crate::distance_mode::distance_mode;
 use crate::distance_mode::DistanceMode;
 use crate::motion::motion;
@@ -62,6 +66,12 @@ pub enum TokenType {
 
     /// Distance mode
     DistanceMode(DistanceMode),
+
+    /// Comment
+    Comment(Comment),
+
+    /// Cutter radius compensation
+    CutterCompensation(CutterCompensation),
 }
 
 // TODO: Rename to `command`?
@@ -76,9 +86,11 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
         map(spindle, TokenType::Spindle),
         map(stopping, TokenType::Stopping),
         map(distance_mode, TokenType::DistanceMode),
+        map(cutter_compensation, TokenType::CutterCompensation),
         map(char('/'), |_| TokenType::BlockDelete),
         map(word('N'), |w| TokenType::LineNumber(w.value)),
         map(word('T'), |w| TokenType::Tool(w.value)),
+        map(comment, TokenType::Comment),
         map(
             verify(word::<f32, _>('F'), |w| w.value.is_sign_positive()),
             |w| TokenType::FeedRate(w.value),
@@ -100,7 +112,7 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rem;
+    use crate::{rem, tok};
     use nom::error::ErrorKind;
     use nom::Err::Error;
 
@@ -125,6 +137,17 @@ mod tests {
         assert_eq!(
             token(ParseInput::new("F-102")),
             Err(Error((rem!("F-102"), ErrorKind::Verify)))
+        );
+    }
+
+    #[test]
+    fn line_number() {
+        assert_eq!(
+            token(ParseInput::new("N1 G40")),
+            Ok((
+                rem!(" G40", 2),
+                tok!(TokenType::LineNumber(1), offs = (0, 2), line = (1, 1))
+            ))
         );
     }
 }

@@ -8,7 +8,7 @@ use nom::sequence::delimited;
 use nom::sequence::preceded;
 use nom::IResult;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum CommentType {
     /// A comment beginning with a `;` semicolon character, ending at a newline
     LineEnd,
@@ -17,11 +17,20 @@ pub enum CommentType {
     Parens,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Comment {
     text: String,
 
     comment_type: CommentType,
+}
+
+impl Comment {
+    pub fn new(text: &str, comment_type: CommentType) -> Self {
+        Self {
+            text: text.to_string(),
+            comment_type,
+        }
+    }
 }
 
 pub fn comment(i: ParseInput) -> IResult<ParseInput, Comment> {

@@ -8,14 +8,15 @@ use nalgebra::VectorN;
 use nalgebra::U9;
 use nom::character::complete::line_ending;
 use nom::character::complete::multispace0;
-use nom::character::complete::space0;
 use nom::multi::separated_list;
 use nom::sequence::delimited;
 use nom_locate::LocatedSpan;
+use std::fmt;
 
 pub mod block;
 pub mod comment;
 pub mod coord;
+pub mod cutter_compensation;
 pub mod distance_mode;
 mod macros;
 pub mod motion;
