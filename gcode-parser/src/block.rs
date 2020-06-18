@@ -1,7 +1,14 @@
+use crate::token::token_parser;
 use crate::token::{token, Token, TokenType};
+use crate::word::word;
 use crate::ParseInput;
+use nom::character::complete::char;
 use nom::character::complete::space0;
+use nom::combinator::map;
+use nom::combinator::opt;
 use nom::multi::many0;
+use nom::sequence::delimited;
+use nom::sequence::preceded;
 use nom::sequence::terminated;
 use nom::IResult;
 
@@ -16,13 +23,42 @@ pub struct Block {
 
 /// Parse a block (single line of gcode)
 pub fn block(i: ParseInput) -> IResult<ParseInput, Block> {
+    let (i, block_delete) = delimited(
+        space0,
+        opt(token_parser(map(char('/'), |_| TokenType::BlockDelete))),
+        space0,
+    )(i)?;
+
+    let (i, line_number) = terminated(
+        opt(token_parser(map(word('N'), |w| {
+            TokenType::LineNumber(w.value)
+        }))),
+        space0,
+    )(i)?;
+
     // TODO: Fix and benchmark `separated_list()` if I can get it to support zero length separators
-    let (i, tokens) = many0(terminated(token, space0))(i)?;
+    let (i, mut rest) = preceded(space0, many0(terminated(token, space0)))(i)?;
+
+    // TODO: Add file position context thing
+
+    let mut tokens = Vec::new();
+
+    let has_block_delete = block_delete.is_some();
+
+    if let Some(del) = block_delete {
+        tokens.push(del);
+    }
+
+    if let Some(n) = line_number {
+        tokens.push(n);
+    }
+
+    tokens.append(&mut rest);
 
     Ok((
         i,
         Block {
-            block_delete: tokens.first().map(|t| &t.token) == Some(&TokenType::BlockDelete),
+            block_delete: has_block_delete,
             tokens,
         },
     ))

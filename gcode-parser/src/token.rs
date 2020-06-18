@@ -17,7 +17,6 @@ use crate::word::word;
 use crate::Location;
 use crate::ParseInput;
 use nom::branch::alt;
-use nom::character::complete::char;
 use nom::combinator::map;
 use nom::combinator::verify;
 use nom::IResult;
@@ -74,11 +73,31 @@ pub enum TokenType {
     CutterCompensation(CutterCompensation),
 }
 
+pub fn token_parser<'a, P>(parser: P) -> impl Fn(ParseInput<'a>) -> IResult<ParseInput<'a>, Token>
+where
+    P: Fn(ParseInput<'a>) -> IResult<ParseInput<'a>, TokenType>,
+{
+    move |i| {
+        let (i, start_pos) = position(i)?;
+
+        let (i, token_type) = parser(i)?;
+
+        let (i, end_pos) = position(i)?;
+
+        Ok((
+            i,
+            Token {
+                start_pos: start_pos.into(),
+                end_pos: end_pos.into(),
+                token: token_type,
+            },
+        ))
+    }
+}
+
 // TODO: Rename to `command`?
 pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
-    let (i, start_pos) = position(i)?;
-
-    let (i, token_type) = alt((
+    token_parser(alt((
         map(coord, TokenType::Coord),
         map(motion, TokenType::Motion),
         map(plane_select, TokenType::PlaneSelect),
@@ -87,32 +106,19 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
         map(stopping, TokenType::Stopping),
         map(distance_mode, TokenType::DistanceMode),
         map(cutter_compensation, TokenType::CutterCompensation),
-        map(char('/'), |_| TokenType::BlockDelete),
-        map(word('N'), |w| TokenType::LineNumber(w.value)),
         map(word('T'), |w| TokenType::Tool(w.value)),
         map(comment, TokenType::Comment),
         map(
             verify(word::<f32, _>('F'), |w| w.value.is_sign_positive()),
             |w| TokenType::FeedRate(w.value),
         ),
-    ))(i)?;
-
-    let (i, end_pos) = position(i)?;
-
-    Ok((
-        i,
-        Token {
-            start_pos: start_pos.into(),
-            end_pos: end_pos.into(),
-            token: token_type,
-        },
-    ))
+    )))(i)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{rem, tok};
+    use crate::rem;
     use nom::error::ErrorKind;
     use nom::Err::Error;
 
@@ -141,13 +147,10 @@ mod tests {
     }
 
     #[test]
-    fn line_number() {
+    fn does_not_parse_line_number() {
         assert_eq!(
             token(ParseInput::new("N1 G40")),
-            Ok((
-                rem!(" G40", 2),
-                tok!(TokenType::LineNumber(1), offs = (0, 2), line = (1, 1))
-            ))
+            Err(Error((rem!("N1 G40", 0, 1), nom::error::ErrorKind::Verify)))
         );
     }
 }
