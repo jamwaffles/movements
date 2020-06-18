@@ -12,6 +12,8 @@ use crate::plane_select::{plane_select, PlaneSelect};
 use crate::spindle::{spindle, Spindle};
 use crate::stopping::stopping;
 use crate::stopping::Stopping;
+use crate::tool_change::tool_change;
+use crate::tool_change::ToolChange;
 use crate::units::{units, Units};
 use crate::word::word;
 use crate::Location;
@@ -71,6 +73,9 @@ pub enum TokenType {
 
     /// Cutter radius compensation
     CutterCompensation(CutterCompensation),
+
+    /// Tool change
+    ToolChange(ToolChange),
 }
 
 pub fn token_parser<'a, P>(parser: P) -> impl Fn(ParseInput<'a>) -> IResult<ParseInput<'a>, Token>
@@ -106,6 +111,7 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
         map(stopping, TokenType::Stopping),
         map(distance_mode, TokenType::DistanceMode),
         map(cutter_compensation, TokenType::CutterCompensation),
+        map(tool_change, TokenType::ToolChange),
         map(word('T'), |w| TokenType::Tool(w.value)),
         map(comment, TokenType::Comment),
         map(

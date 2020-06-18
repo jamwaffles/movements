@@ -67,6 +67,7 @@ pub fn block(i: ParseInput) -> IResult<ParseInput, Block> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tool_change::ToolChange;
     use crate::{coord::Coord, motion::Motion};
     use crate::{rem, tok};
 
@@ -100,6 +101,24 @@ mod tests {
                         tok!(TokenType::LineNumber(1234u32), offs = (0, 5)),
                         tok!(TokenType::Motion(Motion::Feed), offs = (6, 8)),
                         tok!(TokenType::Coord(Coord::with_x(10.0)), offs = (9, 12))
+                    ]
+                }
+            ))
+        );
+
+        assert_eq!(
+            block(ParseInput::new("N10 T1 M06\r\n")),
+            Ok((
+                rem!("\r\n", 10),
+                Block {
+                    block_delete: false,
+                    tokens: vec![
+                        tok!(TokenType::LineNumber(10), offs = (0, 3)),
+                        tok!(TokenType::Tool(1), offs = (4, 6)),
+                        tok!(
+                            TokenType::ToolChange(ToolChange::ToolChange),
+                            offs = (7, 10)
+                        )
                     ]
                 }
             ))

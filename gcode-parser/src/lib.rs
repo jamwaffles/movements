@@ -25,6 +25,7 @@ pub mod plane_select;
 pub mod spindle;
 pub mod stopping;
 pub mod token;
+pub mod tool_change;
 pub mod units;
 pub mod word;
 
