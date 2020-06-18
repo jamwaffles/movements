@@ -75,6 +75,14 @@ impl Coord {
             ..Self::default()
         }
     }
+
+    pub fn with_xy(x: f32, y: f32) -> Self {
+        Self {
+            x: Some(x),
+            y: Some(y),
+            ..Self::default()
+        }
+    }
 }
 
 /// Parse a coordinate

@@ -1,20 +1,25 @@
 //! Gcodes from [modal group 0 (non modal codes)](http://linuxcnc.org/docs/html/gcode/overview.html#_modal_groups)
 
+use crate::coord::{coord, Coord};
 use crate::word::word;
 use crate::ParseInput;
+use nom::branch::alt;
 use nom::character::complete::space0;
 use nom::combinator::map;
 use nom::combinator::verify;
 use nom::sequence::separated_pair;
 use nom::IResult;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum NonModal {
     /// G4
     Dwell { duration: f32 },
+
+    /// G92
+    CoordinateSystemOffset { position: Coord },
 }
 
-pub fn motion(i: ParseInput) -> IResult<ParseInput, NonModal> {
+fn dwell(i: ParseInput) -> IResult<ParseInput, NonModal> {
     map(
         separated_pair(
             verify(word::<u8, _>('G'), |w| w.value == 4),
@@ -27,6 +32,17 @@ pub fn motion(i: ParseInput) -> IResult<ParseInput, NonModal> {
     )(i)
 }
 
+fn coord_system_offset(i: ParseInput) -> IResult<ParseInput, NonModal> {
+    map(
+        separated_pair(verify(word::<u8, _>('G'), |w| w.value == 92), space0, coord),
+        |(_g92, coord)| NonModal::CoordinateSystemOffset { position: coord },
+    )(i)
+}
+
+pub fn non_modal(i: ParseInput) -> IResult<ParseInput, NonModal> {
+    alt((coord_system_offset, dwell))(i)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -37,7 +53,7 @@ mod tests {
     #[test]
     fn float_dwell() {
         assert_eq!(
-            motion(ParseInput::new("G4 P12.34")),
+            non_modal(ParseInput::new("G4 P12.34")),
             Ok((rem!("", 9), NonModal::Dwell { duration: 12.34 }))
         );
     }
@@ -45,7 +61,7 @@ mod tests {
     #[test]
     fn zero_seconds() {
         assert_eq!(
-            motion(ParseInput::new("G4 P0")),
+            non_modal(ParseInput::new("G4 P0")),
             Ok((rem!("", 5), NonModal::Dwell { duration: 0.0 }))
         );
     }
@@ -53,7 +69,7 @@ mod tests {
     #[test]
     fn requires_p_word() {
         assert_eq!(
-            motion(ParseInput::new("G4")),
+            non_modal(ParseInput::new("G4")),
             Err(Error((rem!("", 2), ErrorKind::Eof)))
         );
     }
@@ -61,8 +77,21 @@ mod tests {
     #[test]
     fn negative() {
         assert_eq!(
-            motion(ParseInput::new("G4 P-1.0")),
+            non_modal(ParseInput::new("G4 P-1.0")),
             Err(Error((rem!("P-1.0", 3), ErrorKind::Verify)))
+        );
+    }
+
+    #[test]
+    fn g92_correct() {
+        assert_eq!(
+            non_modal(ParseInput::new("G92 Y0.326 X0.000")),
+            Ok((
+                rem!("", 17),
+                NonModal::CoordinateSystemOffset {
+                    position: Coord::with_xy(0.0, 0.326)
+                }
+            ))
         );
     }
 }

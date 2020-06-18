@@ -8,6 +8,8 @@ use crate::distance_mode::distance_mode;
 use crate::distance_mode::DistanceMode;
 use crate::motion::motion;
 use crate::motion::Motion;
+use crate::non_modal::non_modal;
+use crate::non_modal::NonModal;
 use crate::plane_select::{plane_select, PlaneSelect};
 use crate::spindle::{spindle, Spindle};
 use crate::stopping::stopping;
@@ -79,6 +81,9 @@ pub enum TokenType {
 
     /// Tool change
     ToolChange(ToolChange),
+
+    /// Non-modal commands (group 0)
+    NonModal(NonModal),
 }
 
 pub fn token_parser<'a, P>(parser: P) -> impl Fn(ParseInput<'a>) -> IResult<ParseInput<'a>, Token>
@@ -115,6 +120,7 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
         map(distance_mode, TokenType::DistanceMode),
         map(cutter_compensation, TokenType::CutterCompensation),
         map(tool_change, TokenType::ToolChange),
+        map(non_modal, TokenType::NonModal),
         map(comment, TokenType::Comment),
         map(word('T'), |w| TokenType::Tool(w.value)),
         map(verify(word('S'), |w| w.value >= 0.0), |w| {
