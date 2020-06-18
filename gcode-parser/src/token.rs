@@ -147,6 +147,17 @@ mod tests {
     }
 
     #[test]
+    fn units() {
+        assert_eq!(
+            token(ParseInput::new("G20")),
+            Ok((
+                rem!("", 3),
+                tok!(TokenType::Units(Units::Inch), offs = (0, 3)),
+            ))
+        );
+    }
+
+    #[test]
     fn negative_feed() {
         assert_eq!(
             token(ParseInput::new("F-0.0")),

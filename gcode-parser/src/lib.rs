@@ -55,11 +55,10 @@ pub struct ProgramParseError<'a> {
 
 impl<'a> fmt::Display for ProgramParseError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let whole_line = self
-            .input
-            .fragment()
-            .lines()
-            .nth(self.input.location_line() as usize);
+        // Location lines are 1-indexed so subtract 1 to get 0-index
+        let failing_line = self.failure_point.location_line() as usize - 1;
+
+        let whole_line = self.input.fragment().lines().nth(failing_line);
 
         write!(
             f,
