@@ -3,7 +3,8 @@ members = [
     "gcode-parser",
     # "gcode-validator",
     "gcode-interpreter",
-    "pathviewer"
+    "pathviewer",
+    "realtime-test"
 ]
 
 [patch.crates-io]
