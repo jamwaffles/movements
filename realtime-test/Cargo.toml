@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 thread-priority = "0.2.0"
 histogram = "0.6.9"
+crossbeam = "0.7.3"
