@@ -4,9 +4,11 @@ members = [
     # "gcode-validator",
     "gcode-interpreter",
     "pathviewer",
-    "realtime-test"
+    "realtime-test",
+    "streaming-gcode-parser"
 ]
 
 [patch.crates-io]
 gcode-parser = { path = "gcode-parser" }
 gcode-interpreter = { path = "gcode-interpreter" }
+streaming-gcode-parser = { path = "streaming-gcode-parser" }
