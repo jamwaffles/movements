@@ -24,6 +24,30 @@ impl Value {
     }
 }
 
+impl From<f64> for Value {
+    fn from(other: f64) -> Self {
+        Self::Literal(other)
+    }
+}
+
+impl From<f32> for Value {
+    fn from(other: f32) -> Self {
+        Self::Literal(other.into())
+    }
+}
+
+impl From<i32> for Value {
+    fn from(other: i32) -> Self {
+        Self::Literal(other.into())
+    }
+}
+
+impl From<u32> for Value {
+    fn from(other: u32) -> Self {
+        Self::Literal(other.into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
