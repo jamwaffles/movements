@@ -19,7 +19,7 @@ pub struct Expression {
 }
 
 impl Expression {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: &str) -> IResult<&str, Expression> {
         let (i, tokens) = delimited(
             char('['),
             many0(terminated(ExpressionToken::parse, space0)),
