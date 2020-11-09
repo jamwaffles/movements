@@ -44,6 +44,7 @@ use nom::{
 use parameter::Parameter;
 use std::str::FromStr;
 use value::Value;
+use word::parse_word;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block {
@@ -115,9 +116,17 @@ pub enum Statement {
     /// Axis value
     Coord(Coord),
 
-    // NOTE: This is the only code in the group, so doesn't need its own module.
     /// Tool change.
     ToolChange,
+
+    /// Feed rate.
+    FeedRate(Value),
+
+    /// Spindle speed.
+    SpindleSpeed(Value),
+
+    /// Tool number.
+    ToolNumber(Value),
 
     /// Dynamic token whose code is evaluated at runtime.
     ///
@@ -169,6 +178,12 @@ impl Statement {
             map(CutterCompensation::parse, Self::CutterCompensation),
             map(CoordinateSystem::parse, Self::CoordinateSystem),
             map(Coord::parse, Self::Coord),
+            map(parse_word(one_of("fF")), |(_c, value)| {
+                Self::FeedRate(value)
+            }),
+            map(parse_word(one_of("tT")), |(_c, value)| {
+                Self::ToolNumber(value)
+            }),
             map(Self::parse_comment, |(comment, kind)| Self::Comment {
                 comment,
                 kind,
@@ -182,14 +197,10 @@ impl Statement {
                 Self::SetParameter { parameter, value }
             }),
             // Dynamic code
-            map(
-                separated_pair(
-                    map(anychar, |c| c.to_ascii_lowercase()),
-                    space0,
-                    Value::parse,
-                ),
-                |(letter, number)| Self::Dynamic { letter, number },
-            ),
+            map(parse_word(anychar), |(letter, number)| Self::Dynamic {
+                letter,
+                number,
+            }),
         ))(i)
     }
 
