@@ -14,6 +14,8 @@ use nom::{
     combinator::map,
     combinator::map_opt,
     combinator::map_res,
+    combinator::not,
+    combinator::opt,
     combinator::peek,
     combinator::{cond, verify},
     multi::many0,
@@ -36,11 +38,36 @@ pub enum Motion {
 
 impl Motion {
     pub fn parse(i: &str) -> IResult<&str, Self> {
+        let short_g0 = terminated(tag_no_case("G0"), not(digit1));
+        let short_g1 = terminated(tag_no_case("G1"), not(digit1));
+
         alt((
-            map(tag_no_case("G0"), |_| Motion::Rapid),
             map(tag_no_case("G00"), |_| Motion::Rapid),
-            map(tag_no_case("G1"), |_| Motion::Feed),
             map(tag_no_case("G01"), |_| Motion::Feed),
+            map(short_g0, |_| Motion::Rapid),
+            map(short_g1, |_| Motion::Feed),
         ))(i)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nom::{
+        error::{Error, ErrorKind},
+        Err,
+    };
+
+    #[test]
+    fn motions() {
+        assert_eq!(Motion::parse("g0;"), Ok((";", Motion::Rapid)));
+        assert_eq!(Motion::parse("g00;"), Ok((";", Motion::Rapid)));
+        assert_eq!(Motion::parse("G1;"), Ok((";", Motion::Feed)));
+        assert_eq!(Motion::parse("G01;"), Ok((";", Motion::Feed)));
+
+        assert_eq!(
+            Motion::parse("G04;"),
+            Err(Err::Error(Error::new("G04;", ErrorKind::Tag)))
+        );
     }
 }

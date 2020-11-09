@@ -1,0 +1,10 @@
+#[test]
+#[allow(non_snake_case)]
+fn {name}() {{
+    let input = include_str!("{source_data_path}");
+
+    match Program::parse_complete(input) {{
+    	Ok(_) => (),
+    	Err(e) => panic!("{{}}", e)
+    }}
+}}

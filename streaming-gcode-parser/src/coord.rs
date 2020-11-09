@@ -1,4 +1,4 @@
-use crate::{word::parse_word, Value};
+use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
     bytes::streaming::tag,
@@ -54,7 +54,6 @@ impl Coord {
 
     pub fn parse<'a>(i: &'a str) -> IResult<&'a str, Self> {
         map_res(parse_word(one_of("xyzabcuvwXYZABCUVW")), |(c, value)| {
-            dbg!(c, &value);
             Self::from_char(c, value)
         })(i)
     }

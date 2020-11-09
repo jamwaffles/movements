@@ -91,7 +91,6 @@ impl Coord {
             match result {
                 Ok((_i, (axis, value))) => {
                     remaining = remaining.chars().filter(|c| *c != axis).collect();
-                    dbg!(i, _i, &remaining, axis);
 
                     coord[axis] = Some(value);
 

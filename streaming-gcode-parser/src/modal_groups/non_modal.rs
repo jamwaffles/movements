@@ -14,6 +14,8 @@ use nom::{
     combinator::map,
     combinator::map_opt,
     combinator::map_res,
+    combinator::not,
+    combinator::opt,
     combinator::peek,
     combinator::{cond, verify},
     multi::many0,
@@ -33,12 +35,11 @@ pub enum NonModal {
 
 impl NonModal {
     pub fn parse(i: &str) -> IResult<&str, Self> {
+        let short = terminated(tag_no_case("G4"), not(digit1));
+        let long = tag_no_case("G04");
+
         map(
-            separated_pair(
-                alt((tag_no_case("G4"), tag_no_case("G04"))),
-                space0,
-                parse_word(tag_no_case("P")),
-            ),
+            separated_pair(alt((short, long)), space0, parse_word(tag_no_case("P"))),
             |(_, (_, time))| NonModal::Dwell { time },
         )(i)
     }
@@ -47,6 +48,10 @@ impl NonModal {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nom::{
+        error::{Error, ErrorKind},
+        Err,
+    };
 
     #[test]
     fn test_dwell() {
@@ -58,6 +63,20 @@ mod tests {
                     time: Value::Literal(0.5)
                 }
             ))
+        );
+        assert_eq!(
+            NonModal::parse("G4 P0.5;"),
+            Ok((
+                ";",
+                NonModal::Dwell {
+                    time: Value::Literal(0.5)
+                }
+            ))
+        );
+
+        assert_eq!(
+            NonModal::parse("G01 P0.5;"),
+            Err(Err::Error(Error::new("G01 P0.5;", ErrorKind::Tag)))
         );
     }
 }
