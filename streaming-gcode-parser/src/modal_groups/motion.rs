@@ -25,6 +25,7 @@ use nom::{
     IResult,
 };
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum Motion {
     /// `G0`
     Rapid,
