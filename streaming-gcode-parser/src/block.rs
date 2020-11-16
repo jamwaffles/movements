@@ -61,14 +61,11 @@ fn parse_words(i: &str) -> IResult<&str, Vec<Statement>> {
                 break Ok((i, res));
             }
             Err(e) => {
-                // Hmm. Does this break backtracking behaviour?
-                break Ok((i, res));
-
-                // if res.is_empty() {
-                //     break Err(e);
-                // } else {
-                //     break Ok((i, res));
-                // }
+                if res.is_empty() {
+                    break Err(e);
+                } else {
+                    break Ok((i, res));
+                }
             }
             Ok((i1, o)) => {
                 res.push(o);
