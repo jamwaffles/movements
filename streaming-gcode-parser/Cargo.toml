@@ -8,6 +8,8 @@ edition = "2018"
 
 [dependencies]
 nom = "6.0.0"
+# Not for the core lib, but the scripty helper binary things use it.
+glob = "0.3.0"
 
 [build-dependencies]
 glob = "0.3.0"
