@@ -1,9 +1,12 @@
 use crate::statement::Token;
 use crate::Span;
 use nom::{
-    bytes::streaming::tag_no_case, character::streaming::char, character::streaming::digit1,
-    character::streaming::space0, combinator::map, combinator::map_res, combinator::opt,
-    sequence::preceded, sequence::separated_pair, IResult,
+    bytes::complete::tag_no_case,
+    character::complete::{char, digit1, space0},
+    combinator::{map, map_res, opt},
+    multi::many1,
+    sequence::{preceded, separated_pair},
+    IResult,
 };
 use std::str::FromStr;
 
@@ -45,27 +48,9 @@ impl<'a> Block<'a> {
     }
 
     fn parse_words(i: Span) -> IResult<Span, Vec<Token>> {
-        let mut i = i;
-        let mut res = Vec::new();
+        let (i, items) = opt(many1(preceded(space0, Token::parse)))(i)?;
 
-        loop {
-            match preceded(space0, Token::parse)(i) {
-                Err(nom::Err::Error(_)) => {
-                    break Ok((i, res));
-                }
-                Err(e) => {
-                    if res.is_empty() {
-                        break Err(e);
-                    } else {
-                        break Ok((i, res));
-                    }
-                }
-                Ok((i1, o)) => {
-                    res.push(o);
-                    i = i1;
-                }
-            }
-        }
+        Ok((i, items.unwrap_or_default()))
     }
 
     pub fn parse(i: Span<'a>) -> IResult<Span<'a>, Self> {
@@ -91,7 +76,8 @@ mod tests {
     use super::*;
     use crate::{
         assert_parse,
-        modal_groups::{DistanceMode, Units},
+        coord::Coord,
+        modal_groups::{DistanceMode, Motion, Units},
         statement::Statement,
     };
 
@@ -104,9 +90,9 @@ mod tests {
     fn check_block() {
         assert_parse!(
             Block::parse,
-            "g21 g90;",
+            "g21 g90",
             (
-                ";",
+                "",
                 Block::tokens(vec![
                     Statement::Units(Units::Mm).to_token(3, 1),
                     Statement::DistanceMode(DistanceMode::Absolute).to_token(7, 1),
@@ -119,9 +105,9 @@ mod tests {
     fn check_block_no_spaces() {
         assert_parse!(
             Block::parse,
-            "G21G90;",
+            "G21G90",
             (
-                ";",
+                "",
                 Block::tokens(vec![
                     Statement::Units(Units::Mm).to_token(3, 1),
                     Statement::DistanceMode(DistanceMode::Absolute).to_token(6, 1),
@@ -138,8 +124,8 @@ mod tests {
             (
                 "",
                 Block::tokens(vec![
-                    Statement::Units(Units::Mm).to_token(3, 1),
-                    Statement::DistanceMode(DistanceMode::Absolute).to_token(6, 1),
+                    Statement::Motion(Motion::Feed).to_token(2, 1),
+                    Statement::Coord(Coord::Z(10.0.into())).to_token(6, 1),
                 ])
             )
         );

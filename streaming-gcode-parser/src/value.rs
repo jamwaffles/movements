@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::{expression::Expression, parameter::Parameter, Span};
-use nom::{branch::alt, combinator::map, number::streaming::double, IResult};
+use nom::{branch::alt, combinator::map, number::complete::double, IResult};
 /// Value.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {

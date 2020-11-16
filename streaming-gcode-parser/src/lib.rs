@@ -9,7 +9,11 @@ mod value;
 mod word;
 
 use block::Block;
-use nom::{character::streaming::line_ending, multi::many0, sequence::terminated, IResult};
+use nom::{
+    character::complete::line_ending,
+    multi::{many1, separated_list0},
+    IResult,
+};
 use nom_locate::LocatedSpan;
 pub use statement::Statement;
 pub use value::Value;
@@ -24,34 +28,35 @@ pub struct Program<'a> {
 
 impl<'a> Program<'a> {
     pub fn parse_complete(i: &'a str) -> IResult<Span, Self> {
-        let mut i = Span::new(i);
-        let mut blocks = Vec::new();
+        let i = Span::new(i);
+        // let mut blocks = Vec::new();
 
-        let (i, blocks) = loop {
-            dbg!(i);
-            match terminated(Block::parse, many0(line_ending))(i) {
-                Err(nom::Err::Error(e)) => {
-                    dbg!(e);
-                    break Ok((i, blocks));
-                }
-                Err(e) => {
-                    if blocks.is_empty() {
-                        break Err(e);
-                    } else {
-                        break Ok((i, blocks));
-                    }
-                }
-                Ok((i1, o)) => {
-                    blocks.push(o);
-                    i = i1;
-                }
-            }
-        }?;
+        let (i, blocks) = separated_list0(many1(line_ending), Block::parse)(i)?;
+
+        // let (i, blocks) = loop {
+        //     match terminated(Block::parse, many0(line_ending))(i) {
+        //         Err(nom::Err::Error(e)) => {
+        //             break Ok((i, blocks));
+        //         }
+        //         Err(e) => {
+        //             if blocks.is_empty() {
+        //                 break Err(e);
+        //             } else {
+        //                 break Ok((i, blocks));
+        //             }
+        //         }
+        //         Ok((i1, o)) => {
+        //             blocks.push(o);
+        //             i = i1;
+        //         }
+        //     }
+        // }?;
 
         // dbg!(&res);
 
         // let (i, blocks) = res.unwrap();
 
+        // println!("{}", i);
         // println!("{:#?}", blocks);
 
         // debug_assert!(i.is_empty(), "Remaining input: {}", i);

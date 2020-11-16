@@ -1,6 +1,6 @@
 use crate::value::Value;
 use crate::Span;
-use nom::{character::streaming::space0, sequence::separated_pair, IResult};
+use nom::{character::complete::space0, sequence::separated_pair, IResult};
 
 pub fn parse_word<'a, W, R>(recognizer: R) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, (W, Value)>
 where

@@ -1,8 +1,8 @@
 use crate::{value::Value, Span};
 use nom::{
     branch::alt,
-    character::streaming::char,
-    character::streaming::space0,
+    character::complete::char,
+    character::complete::space0,
     combinator::map,
     multi::many0,
     sequence::{delimited, terminated},

@@ -4,9 +4,9 @@ use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
-    bytes::streaming::tag_no_case,
-    character::streaming::digit1,
-    character::streaming::space0,
+    bytes::complete::tag_no_case,
+    character::complete::digit1,
+    character::complete::space0,
     combinator::map,
     combinator::not,
     sequence::{separated_pair, terminated},

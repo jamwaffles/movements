@@ -5,6 +5,7 @@ mod feedrate_mode;
 mod motion;
 mod non_modal;
 mod plane_select;
+mod spindle;
 mod stopping;
 mod units;
 
@@ -15,5 +16,6 @@ pub use feedrate_mode::*;
 pub use motion::*;
 pub use non_modal::*;
 pub use plane_select::*;
+pub use spindle::*;
 pub use stopping::*;
 pub use units::*;

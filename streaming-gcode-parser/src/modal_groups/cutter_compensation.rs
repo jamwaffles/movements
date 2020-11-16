@@ -3,7 +3,7 @@
 use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
-    branch::alt, bytes::streaming::tag_no_case, character::streaming::space0, combinator::map,
+    branch::alt, bytes::complete::tag_no_case, character::complete::space0, combinator::map,
     combinator::opt, sequence::separated_pair, IResult,
 };
 

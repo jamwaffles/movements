@@ -2,7 +2,7 @@
 
 use crate::Span;
 
-use nom::{branch::alt, bytes::streaming::tag_no_case, combinator::map, IResult};
+use nom::{branch::alt, bytes::complete::tag_no_case, combinator::map, IResult};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CoordinateSystem {

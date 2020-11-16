@@ -1,11 +1,11 @@
 //! Find words that are parsed but are unknown.
 
 use glob::glob;
-use std::fs::{read_to_string};
+use std::fs::read_to_string;
 
-use std::path::{PathBuf};
-use std::{collections::HashMap};
-use std::{collections::HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
+use std::path::PathBuf;
 use streaming_gcode_parser::{Program, Statement};
 
 fn read_files_recursive(root: &str) -> Vec<(PathBuf, String)> {

@@ -1,5 +1,5 @@
 use crate::{value::Value, word::parse_word, Span};
-use nom::{character::streaming::one_of, combinator::map_res, IResult};
+use nom::{character::complete::one_of, combinator::map_res, IResult};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Coord {

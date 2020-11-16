@@ -2,7 +2,7 @@ use crate::{
     coord::Coord,
     modal_groups::{
         CoordinateSystem, CutterCompensation, DistanceMode, FeedrateMode, Motion, NonModal,
-        PlaneSelect, Stopping, Units,
+        PlaneSelect, Spindle, Stopping, Units,
     },
     parameter::Parameter,
     value::Value,
@@ -11,20 +11,10 @@ use crate::{
 };
 use nom::{
     branch::alt,
-    bytes::streaming::tag_no_case,
-    bytes::streaming::take_till,
-    bytes::streaming::take_until,
-    character::streaming::anychar,
-    character::streaming::char,
-    character::streaming::digit1,
-    character::streaming::one_of,
-    character::streaming::space0,
-    combinator::map,
-    combinator::not,
-    combinator::verify,
-    sequence::delimited,
-    sequence::preceded,
-    sequence::{separated_pair, terminated},
+    bytes::complete::{tag_no_case, take_till, take_until},
+    character::complete::{anychar, char, digit1, one_of, space0},
+    combinator::{map, not, verify},
+    sequence::{delimited, preceded, separated_pair, terminated},
     IResult,
 };
 use nom_locate::position;
@@ -93,6 +83,9 @@ pub enum Statement {
 
     /// Modal group 12: coordinate system
     CoordinateSystem(CoordinateSystem),
+
+    /// Modal group M 7: spindle
+    Spindle(Spindle),
 
     /// Axis value
     Coord(Coord),
@@ -169,6 +162,7 @@ impl Statement {
             // M words
             // ---
             map(Stopping::parse, Self::Stopping),
+            map(Spindle::parse, Self::Spindle),
             map(
                 alt((
                     terminated(tag_no_case("M6"), not(digit1)),

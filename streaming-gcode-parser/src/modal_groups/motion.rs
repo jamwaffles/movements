@@ -3,7 +3,7 @@
 use crate::Span;
 
 use nom::{
-    branch::alt, bytes::streaming::tag_no_case, character::streaming::digit1, combinator::map,
+    branch::alt, bytes::complete::tag_no_case, character::complete::digit1, combinator::map,
     combinator::not, sequence::terminated, IResult,
 };
 

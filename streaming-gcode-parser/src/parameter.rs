@@ -1,7 +1,7 @@
 use crate::{expression::Expression, Span};
 use nom::{
-    branch::alt, bytes::streaming::tag, bytes::streaming::take_until, character::streaming::char,
-    character::streaming::digit1, combinator::map, combinator::map_res, sequence::delimited,
+    branch::alt, bytes::complete::tag, bytes::complete::take_until, character::complete::char,
+    character::complete::digit1, combinator::map, combinator::map_res, sequence::delimited,
     sequence::preceded, IResult,
 };
 
