@@ -25,6 +25,7 @@ use nom::{
     combinator::{eof, map_opt},
     error::ParseError,
     multi::many0,
+    multi::many1,
     multi::many_m_n,
     multi::separated_list0,
     sequence::delimited,
@@ -42,7 +43,7 @@ pub fn end_of_line(i: &str) -> IResult<&str, &str> {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct Block {
     block_delete: bool,
     line_number: Option<u32>,
@@ -54,16 +55,19 @@ fn parse_words(i: &str) -> IResult<&str, Vec<Statement>> {
     let mut res = Vec::new();
 
     loop {
-        match dbg!(preceded(space0, Statement::parse)(i)) {
+        match preceded(space0, Statement::parse)(i) {
             Err(nom::Err::Error(_)) => {
                 break Ok((i, res));
             }
             Err(e) => {
-                if res.is_empty() {
-                    break Err(e);
-                } else {
-                    break Ok((i, res));
-                }
+                // Hmm. Does this break backtracking behaviour?
+                break Ok((i, res));
+
+                // if res.is_empty() {
+                //     break Err(e);
+                // } else {
+                //     break Ok((i, res));
+                // }
             }
             Ok((i1, o)) => {
                 res.push(o);
@@ -120,6 +124,11 @@ mod tests {
         error::{Error, ErrorKind},
         Err,
     };
+
+    #[test]
+    fn empty_line() {
+        assert_eq!(Block::parse("\n"), Ok(("\n", Block::default())));
+    }
 
     #[test]
     fn check_block() {
