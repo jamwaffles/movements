@@ -1,12 +1,12 @@
 //! Find words that are parsed but are unknown.
 
 use glob::glob;
-use std::fs::{read_dir, read_to_string};
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::{collections::HashMap, fs::File};
-use std::{collections::HashSet, env};
-use streaming_gcode_parser::{Program, Statement, Value};
+use std::fs::{read_to_string};
+
+use std::path::{PathBuf};
+use std::{collections::HashMap};
+use std::{collections::HashSet};
+use streaming_gcode_parser::{Program, Statement};
 
 fn read_files_recursive(root: &str) -> Vec<(PathBuf, String)> {
     glob(&format!("{}/**/*", root))
@@ -61,7 +61,7 @@ fn main() {
 
     let paths = read_files_recursive(&"../test_files/");
 
-    for (path, case_name) in paths.iter() {
+    for (path, _case_name) in paths.iter() {
         println!("Searching {:?}...", path);
 
         let mut found = HashMap::new();
@@ -69,7 +69,9 @@ fn main() {
         if let Ok((_remaining, parsed)) = Program::parse_complete(&read_to_string(path).unwrap()) {
             let blocks = parsed.blocks;
 
-            for statement in blocks.into_iter().map(|b| b.words.into_iter()).flatten() {
+            for token in blocks.into_iter().map(|b| b.words.into_iter()).flatten() {
+                let statement = token.statement;
+
                 if let Statement::Dynamic { letter, number } = statement {
                     let file_found = found.entry(letter).or_insert_with(HashSet::new);
                     let all_entry = all.entry(letter).or_insert_with(HashSet::new);
@@ -82,7 +84,7 @@ fn main() {
             failures.push(path);
         }
 
-        for (letter, value) in found.iter() {
+        for (letter, _value) in found.iter() {
             println!("    {}", letter);
         }
 
@@ -97,7 +99,7 @@ fn main() {
 
     println!("\nSummary\n");
 
-    for (letter, items) in all.iter() {
+    for (letter, _items) in all.iter() {
         println!("    {}", letter);
     }
     println!();

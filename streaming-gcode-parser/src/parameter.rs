@@ -1,18 +1,8 @@
 use crate::{expression::Expression, Span};
 use nom::{
-    branch::alt,
-    bytes::streaming::tag,
-    bytes::streaming::take_until,
-    character::streaming::char,
-    character::streaming::digit1,
-    character::streaming::{alpha1, anychar, multispace0},
-    combinator::map,
-    combinator::map_res,
-    multi::many0,
-    multi::separated_list0,
-    sequence::delimited,
-    sequence::preceded,
-    IResult,
+    branch::alt, bytes::streaming::tag, bytes::streaming::take_until, character::streaming::char,
+    character::streaming::digit1, combinator::map, combinator::map_res, sequence::delimited,
+    sequence::preceded, IResult,
 };
 
 #[derive(Debug, PartialEq, Clone)]

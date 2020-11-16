@@ -11,32 +11,17 @@ use crate::{
 };
 use nom::{
     branch::alt,
-    bytes::streaming::tag,
     bytes::streaming::tag_no_case,
-    bytes::streaming::take,
     bytes::streaming::take_till,
     bytes::streaming::take_until,
-    bytes::streaming::take_while,
+    character::streaming::anychar,
     character::streaming::char,
     character::streaming::digit1,
-    character::streaming::not_line_ending,
     character::streaming::one_of,
     character::streaming::space0,
-    character::{
-        complete::line_ending,
-        streaming::{alpha1, anychar, multispace0},
-    },
     combinator::map,
-    combinator::map_res,
     combinator::not,
-    combinator::opt,
-    combinator::peek,
-    combinator::recognize,
-    combinator::{cond, verify},
-    combinator::{eof, map_opt},
-    multi::many0,
-    multi::many_m_n,
-    multi::separated_list0,
+    combinator::verify,
     sequence::delimited,
     sequence::preceded,
     sequence::{separated_pair, terminated},
@@ -44,6 +29,7 @@ use nom::{
 };
 use nom_locate::position;
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct Token<'a> {
     pub position: Span<'a>,
     pub statement: Statement,
@@ -130,6 +116,15 @@ pub enum Statement {
 }
 
 impl Statement {
+    pub(crate) fn to_token<'a>(self, offset: usize, line: u32) -> Token<'a> {
+        let span = unsafe { Span::new_from_raw_offset(offset, line, "", ()) };
+
+        Token {
+            statement: self,
+            position: span,
+        }
+    }
+
     fn parse_set_param(i: Span) -> IResult<Span, (Parameter, Value)> {
         separated_pair(
             Parameter::parse,

@@ -1,87 +1,35 @@
-use crate::statement::Statement;
+use crate::statement::Token;
 use crate::Span;
 use nom::{
-    branch::alt,
-    bytes::streaming::tag,
-    bytes::streaming::tag_no_case,
-    bytes::streaming::take_till,
-    bytes::streaming::take_until,
-    bytes::streaming::take_while,
-    character::streaming::char,
-    character::streaming::digit1,
-    character::streaming::not_line_ending,
-    character::streaming::one_of,
-    character::streaming::space0,
-    character::streaming::space1,
-    character::{
-        complete::line_ending,
-        streaming::{alpha1, anychar, multispace0},
-    },
-    combinator::map,
-    combinator::map_res,
-    combinator::opt,
-    combinator::peek,
-    combinator::recognize,
-    combinator::{cond, verify},
-    combinator::{eof, map_opt},
-    error::ParseError,
-    multi::many0,
-    multi::many1,
-    multi::many_m_n,
-    multi::separated_list0,
-    sequence::delimited,
-    sequence::preceded,
-    sequence::{separated_pair, terminated},
-    IResult, InputIter, InputLength, Parser,
+    bytes::streaming::tag_no_case, character::streaming::char, character::streaming::digit1,
+    character::streaming::space0, combinator::map, combinator::map_res, combinator::opt,
+    sequence::preceded, sequence::separated_pair, IResult,
 };
 use std::str::FromStr;
 
-pub fn end_of_line(i: Span) -> IResult<Span, Span> {
-    if i.is_empty() {
-        Ok((i, i))
-    } else {
-        line_ending(i)
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Default)]
-pub struct Block {
+#[derive(Debug, PartialEq, Clone)]
+pub struct Block<'a> {
     block_delete: bool,
     line_number: Option<u32>,
     // TODO: Un-pub
-    pub words: Vec<Statement>,
+    pub words: Vec<Token<'a>>,
 }
 
-fn parse_words(i: Span) -> IResult<Span, Vec<Statement>> {
-    let mut i = i;
-    let mut res = Vec::new();
-
-    loop {
-        match preceded(space0, Statement::parse)(i) {
-            Err(nom::Err::Error(_)) => {
-                break Ok((i, res));
-            }
-            Err(e) => {
-                if res.is_empty() {
-                    break Err(e);
-                } else {
-                    break Ok((i, res));
-                }
-            }
-            Ok((i1, o)) => {
-                res.push(o);
-                i = i1;
-            }
+impl<'a> Default for Block<'a> {
+    fn default() -> Self {
+        Self {
+            block_delete: false,
+            line_number: None,
+            words: Vec::new(),
         }
     }
 }
 
-impl Block {
-    pub fn words(words: Vec<Statement>) -> Self {
+impl<'a> Block<'a> {
+    fn tokens(tokens: Vec<Token<'a>>) -> Self {
         Self {
-            block_delete: false,
-            line_number: None,
-            words,
+            words: tokens,
+            ..Self::default()
         }
     }
 
@@ -96,12 +44,36 @@ impl Block {
         ))(i)
     }
 
-    pub fn parse(i: Span) -> IResult<Span, Self> {
+    fn parse_words(i: Span) -> IResult<Span, Vec<Token>> {
+        let mut i = i;
+        let mut res = Vec::new();
+
+        loop {
+            match preceded(space0, Token::parse)(i) {
+                Err(nom::Err::Error(_)) => {
+                    break Ok((i, res));
+                }
+                Err(e) => {
+                    if res.is_empty() {
+                        break Err(e);
+                    } else {
+                        break Ok((i, res));
+                    }
+                }
+                Ok((i1, o)) => {
+                    res.push(o);
+                    i = i1;
+                }
+            }
+        }
+    }
+
+    pub fn parse(i: Span<'a>) -> IResult<Span<'a>, Self> {
         let (i, block_delete) = Self::parse_block_delete(i)?;
 
         let (i, line_number) = Self::parse_line_number(i)?;
 
-        let (i, words) = parse_words(i)?;
+        let (i, words) = Self::parse_words(i)?;
 
         Ok((
             i,
@@ -120,6 +92,7 @@ mod tests {
     use crate::{
         assert_parse,
         modal_groups::{DistanceMode, Units},
+        statement::Statement,
     };
 
     #[test]
@@ -134,9 +107,9 @@ mod tests {
             "g21 g90;",
             (
                 ";",
-                Block::words(vec![
-                    Statement::Units(Units::Mm),
-                    Statement::DistanceMode(DistanceMode::Absolute),
+                Block::tokens(vec![
+                    Statement::Units(Units::Mm).to_token(3, 1),
+                    Statement::DistanceMode(DistanceMode::Absolute).to_token(7, 1),
                 ])
             )
         );
@@ -149,9 +122,24 @@ mod tests {
             "G21G90;",
             (
                 ";",
-                Block::words(vec![
-                    Statement::Units(Units::Mm),
-                    Statement::DistanceMode(DistanceMode::Absolute),
+                Block::tokens(vec![
+                    Statement::Units(Units::Mm).to_token(3, 1),
+                    Statement::DistanceMode(DistanceMode::Absolute).to_token(6, 1),
+                ])
+            )
+        );
+    }
+
+    #[test]
+    fn no_ending() {
+        assert_parse!(
+            Block::parse,
+            "g1 z10",
+            (
+                "",
+                Block::tokens(vec![
+                    Statement::Units(Units::Mm).to_token(3, 1),
+                    Statement::DistanceMode(DistanceMode::Absolute).to_token(6, 1),
                 ])
             )
         );

@@ -2,12 +2,9 @@ use crate::{value::Value, Span};
 use nom::{
     branch::alt,
     character::streaming::char,
-    character::streaming::multispace0,
     character::streaming::space0,
     combinator::map,
     multi::many0,
-    multi::separated_list0,
-    multi::separated_list1,
     sequence::{delimited, terminated},
     IResult,
 };

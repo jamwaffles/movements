@@ -1,10 +1,7 @@
 use std::fmt;
 
 use crate::{expression::Expression, parameter::Parameter, Span};
-use nom::{
-    branch::alt, character::streaming::char, character::streaming::multispace0, combinator::map,
-    multi::many0, multi::separated_list0, number::streaming::double, sequence::delimited, IResult,
-};
+use nom::{branch::alt, combinator::map, number::streaming::double, IResult};
 /// Value.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
@@ -31,8 +28,8 @@ impl fmt::Display for Value {
         match self {
             // TODO: This truncation is stupid but it makes for easier debugging
             Self::Literal(n) => write!(f, "{:0.2}", n),
-            Self::Parameter(n) => f.write_str("TODO: Format params"),
-            Self::Expression(n) => f.write_str("TODO: Format expressions"),
+            Self::Parameter(_n) => f.write_str("TODO: Format params"),
+            Self::Expression(_n) => f.write_str("TODO: Format expressions"),
         }
     }
 }

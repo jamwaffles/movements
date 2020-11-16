@@ -1,26 +1,5 @@
 use crate::{value::Value, word::parse_word, Span};
-use nom::{
-    branch::alt,
-    bytes::streaming::tag,
-    bytes::streaming::take_until,
-    character::streaming::char,
-    character::streaming::digit1,
-    character::streaming::one_of,
-    character::streaming::space0,
-    character::streaming::{alpha1, anychar, multispace0},
-    combinator::map,
-    combinator::map_opt,
-    combinator::map_res,
-    combinator::peek,
-    combinator::{cond, verify},
-    multi::many0,
-    multi::many_m_n,
-    multi::separated_list0,
-    sequence::delimited,
-    sequence::preceded,
-    sequence::{separated_pair, terminated},
-    IResult,
-};
+use nom::{character::streaming::one_of, combinator::map_res, IResult};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Coord {
