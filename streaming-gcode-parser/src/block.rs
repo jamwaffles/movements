@@ -47,7 +47,8 @@ pub fn end_of_line(i: &str) -> IResult<&str, &str> {
 pub struct Block {
     block_delete: bool,
     line_number: Option<u32>,
-    words: Vec<Statement>,
+    // TODO: Un-pub
+    pub words: Vec<Statement>,
 }
 
 fn parse_words(i: &str) -> IResult<&str, Vec<Statement>> {

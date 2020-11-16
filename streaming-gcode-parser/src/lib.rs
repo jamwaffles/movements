@@ -15,10 +15,13 @@ use nom::{
     sequence::terminated,
     IResult,
 };
+pub use statement::Statement;
+pub use value::Value;
 
 #[derive(Debug, Clone)]
 pub struct Program {
-    blocks: Vec<Block>,
+    // TODO: Un-pub
+    pub blocks: Vec<Block>,
 }
 
 impl Program {
@@ -41,7 +44,7 @@ impl Program {
             }
         }
 
-        debug_assert!(i.is_empty(), "Remaining input: {}", i);
+        // debug_assert!(i.is_empty(), "Remaining input: {}", i);
 
         Ok((i, Self { blocks }))
     }

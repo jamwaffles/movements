@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{expression::Expression, parameter::Parameter};
 use nom::{
     branch::alt, character::streaming::char, character::streaming::multispace0, combinator::map,
@@ -21,6 +23,17 @@ impl Value {
             map(Parameter::parse, Value::Parameter),
             map(Expression::parse, Value::Expression),
         ))(i)
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            // TODO: This truncation is stupid but it makes for easier debugging
+            Self::Literal(n) => write!(f, "{:0.2}", n),
+            Self::Parameter(n) => f.write_str("TODO: Format params"),
+            Self::Expression(n) => f.write_str("TODO: Format expressions"),
+        }
     }
 }
 
