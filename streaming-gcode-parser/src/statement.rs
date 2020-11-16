@@ -12,6 +12,7 @@ use nom::{
     branch::alt,
     bytes::streaming::tag,
     bytes::streaming::tag_no_case,
+    bytes::streaming::take,
     bytes::streaming::take_till,
     bytes::streaming::take_until,
     bytes::streaming::take_while,
@@ -118,7 +119,7 @@ impl Statement {
     fn parse_comment(i: &str) -> IResult<&str, (String, CommentKind)> {
         alt((
             map(
-                preceded(char(';'), take_while(|c| c != '\r' && c != '\n')),
+                preceded(char(';'), take_till(|c| c == '\r' || c == '\n')),
                 |comment: &str| (comment.trim().to_string(), CommentKind::Line),
             ),
             map(
@@ -180,10 +181,10 @@ impl Statement {
                 Self::SetParameter { parameter, value }
             }),
             // Dynamic code
-            map(parse_word(anychar), |(letter, number)| Self::Dynamic {
-                letter,
-                number,
-            }),
+            map(
+                parse_word(verify(anychar, |c| c.is_ascii_alphabetic())),
+                |(letter, number)| Self::Dynamic { letter, number },
+            ),
         ))(i)
     }
 
@@ -200,10 +201,31 @@ mod tests {
     use super::*;
 
     #[test]
+    fn assignment() {
+        assert_eq!(
+            Statement::parse("#9 = 100;"),
+            Ok((
+                ";",
+                Statement::SetParameter {
+                    parameter: Parameter::Index(9),
+                    value: 100.0.into()
+                }
+            ))
+        );
+    }
+
+    #[test]
     fn comments() {
         assert_eq!(
             Statement::parse("(closed)"),
             Ok(("", Statement::comment("closed", CommentKind::Delimited)))
+        );
+        assert_eq!(
+            Statement::parse("(newline and param)\n#9=0"),
+            Ok((
+                "\n#9=0",
+                Statement::comment("newline and param", CommentKind::Delimited)
+            ))
         );
         assert_eq!(
             Statement::parse("; Open\n"),
