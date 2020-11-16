@@ -57,6 +57,7 @@ fn main() {
 
     let mut files = HashMap::new();
     let mut all = HashMap::new();
+    let mut failures = Vec::new();
 
     let paths = read_files_recursive(&"../test_files/");
 
@@ -77,6 +78,8 @@ fn main() {
                     all_entry.insert(number.to_string());
                 }
             }
+        } else {
+            failures.push(path);
         }
 
         for (letter, value) in found.iter() {
@@ -84,6 +87,12 @@ fn main() {
         }
 
         files.insert(path, found);
+    }
+
+    println!("\nFailures\n");
+
+    for path in failures.iter() {
+        println!("    {:?}", path);
     }
 
     println!("\nSummary\n");
