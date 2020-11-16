@@ -1,5 +1,6 @@
 //! Group 4: stopping
 
+use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
@@ -44,7 +45,7 @@ pub enum Stopping {
 }
 
 impl Stopping {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
             map(tag_no_case("M0"), |_| Stopping::Pause),
             map(tag_no_case("M1"), |_| Stopping::OptionalPause),
@@ -58,19 +59,18 @@ impl Stopping {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
 
     #[test]
     fn lowercase() {
-        assert_eq!(Stopping::parse("m0;"), Ok((";", Stopping::Pause)));
-        assert_eq!(Stopping::parse("m1;"), Ok((";", Stopping::OptionalPause)));
-        assert_eq!(
-            Stopping::parse("m60;"),
-            Ok((";", Stopping::ChangePalletPause))
-        );
-        assert_eq!(Stopping::parse("m2;"), Ok((";", Stopping::EndProgram)));
-        assert_eq!(
-            Stopping::parse("m30;"),
-            Ok((";", Stopping::ChangePalletEndProgram))
+        assert_parse!(Stopping::parse, "m0;", (";", Stopping::Pause));
+        assert_parse!(Stopping::parse, "m1;", (";", Stopping::OptionalPause));
+        assert_parse!(Stopping::parse, "m60;", (";", Stopping::ChangePalletPause));
+        assert_parse!(Stopping::parse, "m2;", (";", Stopping::EndProgram));
+        assert_parse!(
+            Stopping::parse,
+            "m30;",
+            (";", Stopping::ChangePalletEndProgram)
         );
     }
 }

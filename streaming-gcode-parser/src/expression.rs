@@ -1,4 +1,4 @@
-use crate::value::Value;
+use crate::{value::Value, Span};
 use nom::{
     branch::alt,
     character::streaming::char,
@@ -19,7 +19,7 @@ pub struct Expression {
 }
 
 impl Expression {
-    pub fn parse(i: &str) -> IResult<&str, Expression> {
+    pub fn parse(i: Span) -> IResult<Span, Expression> {
         let (i, tokens) = delimited(
             char('['),
             many0(terminated(ExpressionToken::parse, space0)),
@@ -38,7 +38,7 @@ pub enum ExpressionToken {
 }
 
 impl ExpressionToken {
-    fn parse(i: &str) -> IResult<&str, ExpressionToken> {
+    fn parse(i: Span) -> IResult<Span, ExpressionToken> {
         alt((
             map(Value::parse, ExpressionToken::Value),
             map(Operator::parse, ExpressionToken::Operator),
@@ -57,7 +57,7 @@ pub enum Operator {
 }
 
 impl Operator {
-    fn parse(i: &str) -> IResult<&str, Operator> {
+    fn parse(i: Span) -> IResult<Span, Operator> {
         alt((
             map(char('+'), |_| Operator::Add),
             map(char('-'), |_| Operator::Sub),
@@ -70,12 +70,14 @@ impl Operator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
 
     #[test]
     fn simple() {
-        assert_eq!(
-            Expression::parse("[100 + 200]"),
-            Ok((
+        assert_parse!(
+            Expression::parse,
+            "[100 + 200]",
+            (
                 "",
                 Expression {
                     tokens: vec![
@@ -84,7 +86,7 @@ mod tests {
                         ExpressionToken::Value(Value::Literal(200.0))
                     ]
                 }
-            ))
+            )
         );
     }
 }

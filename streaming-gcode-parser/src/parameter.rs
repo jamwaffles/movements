@@ -1,4 +1,4 @@
-use crate::expression::Expression;
+use crate::{expression::Expression, Span};
 use nom::{
     branch::alt,
     bytes::streaming::tag,
@@ -29,19 +29,19 @@ pub enum Parameter {
 }
 
 impl Parameter {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         let (i, param) = preceded(
             char('#'),
             alt((
                 map(
                     delimited(tag("<_"), take_until(">"), char('>')),
-                    |name: &str| Self::Global(name.to_string()),
+                    |name: Span| Self::Global(name.to_string()),
                 ),
                 map(
                     delimited(char('<'), take_until(">"), char('>')),
-                    |name: &str| Self::Local(name.to_string()),
+                    |name: Span| Self::Local(name.to_string()),
                 ),
-                map_res(digit1, |bytes: &str| bytes.parse().map(Self::Index)),
+                map_res(digit1, |bytes: Span| bytes.parse().map(Self::Index)),
                 map(Expression::parse, Self::Dynamic),
             )),
         )(i)?;
@@ -53,6 +53,7 @@ impl Parameter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
     use crate::{
         expression::{ExpressionToken, Operator},
         value::Value,
@@ -60,33 +61,33 @@ mod tests {
 
     #[test]
     fn local() {
-        assert_eq!(
-            Parameter::parse("#<testo>"),
-            Ok(("", Parameter::Local(String::from("testo"))))
+        assert_parse!(
+            Parameter::parse,
+            "#<testo>",
+            ("", Parameter::Local(String::from("testo")))
         );
     }
 
     #[test]
     fn global() {
-        assert_eq!(
-            Parameter::parse("#<_testo>"),
-            Ok(("", Parameter::Global(String::from("testo"))))
+        assert_parse!(
+            Parameter::parse,
+            "#<_testo>",
+            ("", Parameter::Global(String::from("testo")))
         );
     }
 
     #[test]
     fn index() {
-        assert_eq!(
-            Parameter::parse("#5535;"),
-            Ok((";", Parameter::Index(5535)))
-        );
+        assert_parse!(Parameter::parse, "#5535;", (";", Parameter::Index(5535)));
     }
 
     #[test]
     fn dynamic() {
-        assert_eq!(
-            Parameter::parse("#[100 + 200]"),
-            Ok((
+        assert_parse!(
+            Parameter::parse,
+            "#[100 + 200]",
+            (
                 "",
                 Parameter::Dynamic(Expression {
                     tokens: vec![
@@ -95,7 +96,7 @@ mod tests {
                         ExpressionToken::Value(Value::Literal(200.0))
                     ]
                 })
-            ))
+            )
         );
     }
 }

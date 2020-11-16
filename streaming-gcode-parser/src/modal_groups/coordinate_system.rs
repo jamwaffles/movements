@@ -1,5 +1,6 @@
 //! Group 12: coordinate system
 
+use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
@@ -39,7 +40,7 @@ pub enum CoordinateSystem {
 }
 
 impl CoordinateSystem {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
             // Decimal offsets must be parsed first to consume the decimal.
             map(tag_no_case("G59.1"), |_| CoordinateSystem::G59_1),
@@ -58,20 +59,23 @@ impl CoordinateSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
 
     #[test]
     fn lowercase() {
-        assert_eq!(
-            CoordinateSystem::parse("g54;"),
-            Ok((";", CoordinateSystem::G54))
+        assert_parse!(
+            CoordinateSystem::parse,
+            "g54;",
+            (";", CoordinateSystem::G54)
         );
     }
 
     #[test]
     fn decimal() {
-        assert_eq!(
-            CoordinateSystem::parse("G59.1;"),
-            Ok((";", CoordinateSystem::G59_1))
+        assert_parse!(
+            CoordinateSystem::parse,
+            "G59.1;",
+            (";", CoordinateSystem::G59_1)
         );
     }
 }

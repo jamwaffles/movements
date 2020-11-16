@@ -1,5 +1,6 @@
 //! Group 2: plane select
 
+use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
@@ -38,7 +39,7 @@ pub enum PlaneSelect {
 }
 
 impl PlaneSelect {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
             map(tag_no_case("G17"), |_| PlaneSelect::XY),
             map(tag_no_case("G18"), |_| PlaneSelect::XZ),
@@ -50,15 +51,16 @@ impl PlaneSelect {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
 
     #[test]
     fn lowercase() {
-        assert_eq!(PlaneSelect::parse("g17;"), Ok((";", PlaneSelect::XY)));
+        assert_parse!(PlaneSelect::parse, "g17;", (";", PlaneSelect::XY));
     }
 
     #[test]
     fn planes() {
-        assert_eq!(PlaneSelect::parse("G18;"), Ok((";", PlaneSelect::XZ)));
-        assert_eq!(PlaneSelect::parse("G19;"), Ok((";", PlaneSelect::YZ)));
+        assert_parse!(PlaneSelect::parse, "G18;", (";", PlaneSelect::XZ));
+        assert_parse!(PlaneSelect::parse, "G19;", (";", PlaneSelect::YZ));
     }
 }

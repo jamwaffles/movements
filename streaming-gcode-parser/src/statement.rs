@@ -7,6 +7,7 @@ use crate::{
     parameter::Parameter,
     value::Value,
     word::parse_word,
+    Span,
 };
 use nom::{
     branch::alt,
@@ -41,6 +42,27 @@ use nom::{
     sequence::{separated_pair, terminated},
     IResult,
 };
+use nom_locate::position;
+
+pub struct Token<'a> {
+    pub position: Span<'a>,
+    pub statement: Statement,
+}
+
+impl<'a> Token<'a> {
+    pub fn parse(i: Span<'a>) -> IResult<Span, Self> {
+        let (i, statement) = Statement::parse(i)?;
+        let (i, pos) = position(i)?;
+
+        Ok((
+            i,
+            Self {
+                statement,
+                position: pos,
+            },
+        ))
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CommentKind {
@@ -108,7 +130,7 @@ pub enum Statement {
 }
 
 impl Statement {
-    fn parse_set_param(i: &str) -> IResult<&str, (Parameter, Value)> {
+    fn parse_set_param(i: Span) -> IResult<Span, (Parameter, Value)> {
         separated_pair(
             Parameter::parse,
             delimited(space0, char('='), space0),
@@ -116,15 +138,15 @@ impl Statement {
         )(i)
     }
 
-    fn parse_comment(i: &str) -> IResult<&str, (String, CommentKind)> {
+    fn parse_comment(i: Span) -> IResult<Span, (String, CommentKind)> {
         alt((
             map(
                 preceded(char(';'), take_till(|c| c == '\r' || c == '\n')),
-                |comment: &str| (comment.trim().to_string(), CommentKind::Line),
+                |comment: Span| (comment.trim().to_string(), CommentKind::Line),
             ),
             map(
                 delimited(char('('), take_until(")"), char(')')),
-                |comment: &str| (comment.trim().to_string(), CommentKind::Delimited),
+                |comment: Span| (comment.trim().to_string(), CommentKind::Delimited),
             ),
         ))(i)
     }
@@ -132,7 +154,7 @@ impl Statement {
     /// Parses anything that isn't a line number or block delete.
     ///
     /// Line numbers and block delete hold special positions in the block, so are parsed separately.
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
             // ---
             // G words
@@ -199,49 +221,56 @@ impl Statement {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
 
     #[test]
     fn assignment() {
-        assert_eq!(
-            Statement::parse("#9 = 100;"),
-            Ok((
+        assert_parse!(
+            Statement::parse,
+            "#9 = 100;",
+            (
                 ";",
                 Statement::SetParameter {
                     parameter: Parameter::Index(9),
                     value: 100.0.into()
                 }
-            ))
+            )
         );
     }
 
     #[test]
     fn comments() {
-        assert_eq!(
-            Statement::parse("(closed)"),
-            Ok(("", Statement::comment("closed", CommentKind::Delimited)))
+        assert_parse!(
+            Statement::parse,
+            "(closed)",
+            ("", Statement::comment("closed", CommentKind::Delimited))
         );
-        assert_eq!(
-            Statement::parse("(newline and param)\n#9=0"),
-            Ok((
+        assert_parse!(
+            Statement::parse,
+            "(newline and param)\n#9=0",
+            (
                 "\n#9=0",
                 Statement::comment("newline and param", CommentKind::Delimited)
-            ))
+            )
         );
-        assert_eq!(
-            Statement::parse("; Open\n"),
-            Ok(("\n", Statement::comment("Open", CommentKind::Line)))
+        assert_parse!(
+            Statement::parse,
+            "; Open\n",
+            ("\n", Statement::comment("Open", CommentKind::Line))
         );
     }
 
     #[test]
     fn motion_first() {
-        assert_eq!(
-            Statement::parse("G1\n"),
-            Ok(("\n", Statement::Motion(Motion::Feed)))
+        assert_parse!(
+            Statement::parse,
+            "G1\n",
+            ("\n", Statement::Motion(Motion::Feed))
         );
-        assert_eq!(
-            Statement::parse("G17"),
-            Ok(("", Statement::PlaneSelect(PlaneSelect::XY)))
+        assert_parse!(
+            Statement::parse,
+            "G17",
+            ("", Statement::PlaneSelect(PlaneSelect::XY))
         );
     }
 }

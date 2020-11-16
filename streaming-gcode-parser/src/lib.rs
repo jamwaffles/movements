@@ -1,6 +1,7 @@
 mod block;
 mod coord;
 mod expression;
+mod macros;
 mod modal_groups;
 mod parameter;
 mod statement;
@@ -15,8 +16,11 @@ use nom::{
     sequence::terminated,
     IResult,
 };
+use nom_locate::LocatedSpan;
 pub use statement::Statement;
 pub use value::Value;
+
+pub type Span<'a> = LocatedSpan<&'a str>;
 
 #[derive(Debug, Clone)]
 pub struct Program {
@@ -25,7 +29,9 @@ pub struct Program {
 }
 
 impl Program {
-    pub fn parse_complete(i: &str) -> IResult<&str, Self> {
+    pub fn parse_complete(i: &str) -> IResult<Span, Self> {
+        let i = Span::new(i);
+
         let (i, blocks) = separated_list0(many1(line_ending), Block::parse)(i)?;
 
         // println!("{:#?}", blocks);

@@ -1,5 +1,6 @@
 //! Group 7: cutter radius compensation
 
+use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
@@ -45,7 +46,7 @@ pub enum CutterCompensation {
 }
 
 impl CutterCompensation {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         let tool_number = |tag: &'static str| {
             map(
                 separated_pair(tag_no_case(tag), space0, opt(parse_word(tag_no_case("D")))),
@@ -68,38 +69,43 @@ impl CutterCompensation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
 
     #[test]
     fn no_d() {
-        assert_eq!(
-            CutterCompensation::parse("G41;"),
-            Ok((";", CutterCompensation::Left { tool_number: None }))
+        assert_parse!(
+            CutterCompensation::parse,
+            "G41;",
+            (";", CutterCompensation::Left { tool_number: None })
         );
-        assert_eq!(
-            CutterCompensation::parse("G42;"),
-            Ok((";", CutterCompensation::Right { tool_number: None }))
+        assert_parse!(
+            CutterCompensation::parse,
+            "G42;",
+            (";", CutterCompensation::Right { tool_number: None })
         );
     }
 
     #[test]
     fn with_d() {
-        assert_eq!(
-            CutterCompensation::parse("G41 D13;"),
-            Ok((
+        assert_parse!(
+            CutterCompensation::parse,
+            "G41 D13;",
+            (
                 ";",
                 CutterCompensation::Left {
                     tool_number: Some(13.into())
                 }
-            ))
+            )
         );
-        assert_eq!(
-            CutterCompensation::parse("G42 D1;"),
-            Ok((
+        assert_parse!(
+            CutterCompensation::parse,
+            "G42 D1;",
+            (
                 ";",
                 CutterCompensation::Right {
                     tool_number: Some(1.into())
                 }
-            ))
+            )
         );
     }
 }

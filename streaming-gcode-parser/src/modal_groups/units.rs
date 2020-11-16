@@ -1,5 +1,6 @@
 //! Group 6: units
 
+use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
@@ -35,7 +36,7 @@ pub enum Units {
 }
 
 impl Units {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
             map(tag_no_case("G20"), |_| Units::Inches),
             map(tag_no_case("G21"), |_| Units::Mm),

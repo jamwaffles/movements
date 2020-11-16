@@ -1,5 +1,6 @@
 //! Group 3: distance mode
 
+use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
@@ -35,7 +36,7 @@ pub enum DistanceMode {
 }
 
 impl DistanceMode {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
             map(tag_no_case("G90"), |_| DistanceMode::Absolute),
             map(tag_no_case("G91"), |_| DistanceMode::Incremental),
@@ -46,24 +47,21 @@ impl DistanceMode {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
 
     #[test]
     fn distance_modes() {
-        assert_eq!(
-            DistanceMode::parse("g90;"),
-            Ok((";", DistanceMode::Absolute))
+        assert_parse!(DistanceMode::parse, "g90;", (";", DistanceMode::Absolute));
+        assert_parse!(
+            DistanceMode::parse,
+            "g91;",
+            (";", DistanceMode::Incremental)
         );
-        assert_eq!(
-            DistanceMode::parse("g91;"),
-            Ok((";", DistanceMode::Incremental))
-        );
-        assert_eq!(
-            DistanceMode::parse("G90;"),
-            Ok((";", DistanceMode::Absolute))
-        );
-        assert_eq!(
-            DistanceMode::parse("G91;"),
-            Ok((";", DistanceMode::Incremental))
+        assert_parse!(DistanceMode::parse, "G90;", (";", DistanceMode::Absolute));
+        assert_parse!(
+            DistanceMode::parse,
+            "G91;",
+            (";", DistanceMode::Incremental)
         );
     }
 }

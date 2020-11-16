@@ -1,4 +1,5 @@
 use crate::statement::Statement;
+use crate::Span;
 use nom::{
     branch::alt,
     bytes::streaming::tag,
@@ -35,7 +36,7 @@ use nom::{
 };
 use std::str::FromStr;
 
-pub fn end_of_line(i: &str) -> IResult<&str, &str> {
+pub fn end_of_line(i: Span) -> IResult<Span, Span> {
     if i.is_empty() {
         Ok((i, i))
     } else {
@@ -51,7 +52,7 @@ pub struct Block {
     pub words: Vec<Statement>,
 }
 
-fn parse_words(i: &str) -> IResult<&str, Vec<Statement>> {
+fn parse_words(i: Span) -> IResult<Span, Vec<Statement>> {
     let mut i = i;
     let mut res = Vec::new();
 
@@ -84,18 +85,18 @@ impl Block {
         }
     }
 
-    fn parse_block_delete(i: &str) -> IResult<&str, Option<()>> {
+    fn parse_block_delete(i: Span) -> IResult<Span, Option<()>> {
         opt(map(char('/'), |_| ()))(i)
     }
 
-    fn parse_line_number(i: &str) -> IResult<&str, Option<u32>> {
+    fn parse_line_number(i: Span) -> IResult<Span, Option<u32>> {
         opt(map_res(
             separated_pair(tag_no_case("N"), space0, digit1),
-            |(_, number)| u32::from_str(number),
+            |(_, number): (_, Span)| u32::from_str(&number.to_string()),
         ))(i)
     }
 
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         let (i, block_delete) = Self::parse_block_delete(i)?;
 
         let (i, line_number) = Self::parse_line_number(i)?;
@@ -115,44 +116,44 @@ impl Block {
 
 #[cfg(test)]
 mod tests {
-    use crate::modal_groups::{DistanceMode, Units};
-
     use super::*;
-    use nom::{
-        error::{Error, ErrorKind},
-        Err,
+    use crate::{
+        assert_parse,
+        modal_groups::{DistanceMode, Units},
     };
 
     #[test]
     fn empty_line() {
-        assert_eq!(Block::parse("\n"), Ok(("\n", Block::default())));
+        assert_parse!(Block::parse, "\n", ("\n", Block::default()));
     }
 
     #[test]
     fn check_block() {
-        assert_eq!(
-            Block::parse("g21 g90;"),
-            Ok((
+        assert_parse!(
+            Block::parse,
+            "g21 g90;",
+            (
                 ";",
                 Block::words(vec![
                     Statement::Units(Units::Mm),
                     Statement::DistanceMode(DistanceMode::Absolute),
                 ])
-            ))
+            )
         );
     }
 
     #[test]
     fn check_block_no_spaces() {
-        assert_eq!(
-            Block::parse("G21G90;"),
-            Ok((
+        assert_parse!(
+            Block::parse,
+            "G21G90;",
+            (
                 ";",
                 Block::words(vec![
                     Statement::Units(Units::Mm),
                     Statement::DistanceMode(DistanceMode::Absolute),
                 ])
-            ))
+            )
         );
     }
 }

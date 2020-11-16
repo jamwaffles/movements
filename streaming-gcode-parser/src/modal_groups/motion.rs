@@ -1,5 +1,6 @@
 //! Modal group 1, motion.
 
+use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
@@ -37,7 +38,7 @@ pub enum Motion {
 }
 
 impl Motion {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         let short_g0 = terminated(tag_no_case("G0"), not(digit1));
         let short_g1 = terminated(tag_no_case("G1"), not(digit1));
 
@@ -53,6 +54,7 @@ impl Motion {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
     use nom::{
         error::{Error, ErrorKind},
         Err,
@@ -60,14 +62,14 @@ mod tests {
 
     #[test]
     fn motions() {
-        assert_eq!(Motion::parse("g0;"), Ok((";", Motion::Rapid)));
-        assert_eq!(Motion::parse("g00;"), Ok((";", Motion::Rapid)));
-        assert_eq!(Motion::parse("G1;"), Ok((";", Motion::Feed)));
-        assert_eq!(Motion::parse("G01;"), Ok((";", Motion::Feed)));
+        assert_parse!(Motion::parse, "g0;", (";", Motion::Rapid));
+        assert_parse!(Motion::parse, "g00;", (";", Motion::Rapid));
+        assert_parse!(Motion::parse, "G1;", (";", Motion::Feed));
+        assert_parse!(Motion::parse, "G01;", (";", Motion::Feed));
 
         assert_eq!(
-            Motion::parse("G04;"),
-            Err(Err::Error(Error::new("G04;", ErrorKind::Tag)))
+            Motion::parse("G04;".into()),
+            Err(Err::Error(Error::new("G04;".into(), ErrorKind::Tag)))
         );
     }
 }

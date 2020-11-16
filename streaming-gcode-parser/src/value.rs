@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{expression::Expression, parameter::Parameter};
+use crate::{expression::Expression, parameter::Parameter, Span};
 use nom::{
     branch::alt, character::streaming::char, character::streaming::multispace0, combinator::map,
     multi::many0, multi::separated_list0, number::streaming::double, sequence::delimited, IResult,
@@ -17,7 +17,7 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
             map(double, Value::Literal),
             map(Parameter::parse, Value::Parameter),
@@ -64,11 +64,11 @@ impl From<u32> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::expression::{ExpressionToken, Operator};
+    use crate::assert_parse;
 
     #[test]
     fn literal() {
-        assert_eq!(Value::parse("100.0;"), Ok((";", Value::Literal(100.0))));
-        assert_eq!(Value::parse("100;"), Ok((";", Value::Literal(100.0))));
+        assert_parse!(Value::parse, "100.0;", (";", Value::Literal(100.0)));
+        assert_parse!(Value::parse, "100;", (";", Value::Literal(100.0)));
     }
 }

@@ -1,5 +1,6 @@
 //! Group 5: feedrate mode
 
+use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
@@ -35,7 +36,7 @@ pub enum FeedrateMode {
 }
 
 impl FeedrateMode {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
             map(tag_no_case("G93"), |_| FeedrateMode::UnitsPerMinute),
             map(tag_no_case("G94"), |_| FeedrateMode::InverseTime),

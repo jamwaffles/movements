@@ -1,4 +1,5 @@
 use crate::value::Value;
+use crate::Span;
 use nom::{
     branch::alt,
     bytes::streaming::tag,
@@ -22,9 +23,9 @@ use nom::{
     IResult,
 };
 
-pub fn parse_word<'a, W, R>(recognizer: R) -> impl FnMut(&'a str) -> IResult<&'a str, (W, Value)>
+pub fn parse_word<'a, W, R>(recognizer: R) -> impl FnMut(Span<'a>) -> IResult<Span<'a>, (W, Value)>
 where
-    R: FnMut(&'a str) -> IResult<&'a str, W> + FnOnce(&'a str) -> IResult<&'a str, W>,
+    R: FnMut(Span<'a>) -> IResult<Span<'a>, W> + FnOnce(Span<'a>) -> IResult<Span<'a>, W>,
 {
     separated_pair(recognizer, space0, Value::parse)
 }

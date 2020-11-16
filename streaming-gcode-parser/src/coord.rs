@@ -1,4 +1,4 @@
-use crate::{value::Value, word::parse_word};
+use crate::{value::Value, word::parse_word, Span};
 use nom::{
     branch::alt,
     bytes::streaming::tag,
@@ -52,7 +52,7 @@ impl Coord {
         }
     }
 
-    pub fn parse<'a>(i: &'a str) -> IResult<&'a str, Self> {
+    pub fn parse<'a>(i: Span) -> IResult<Span, Self> {
         map_res(parse_word(one_of("xyzabcuvwXYZABCUVW")), |(c, value)| {
             Self::from_char(c, value)
         })(i)
@@ -62,23 +62,21 @@ impl Coord {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
 
     #[test]
     fn check_coord() {
-        assert_eq!(Coord::parse("x10;"), Ok((";", Coord::X(10.0.into()))));
-        assert_eq!(Coord::parse("x10 y20"), Ok((" y20", Coord::X(10.0.into()))));
+        assert_parse!(Coord::parse, "x10;", (";", Coord::X(10.0.into())));
+        assert_parse!(Coord::parse, "x10 y20", (" y20", Coord::X(10.0.into())));
     }
 
     #[test]
     fn caps() {
-        assert_eq!(Coord::parse("Z10.1;"), Ok((";", Coord::Z(10.1.into()))));
+        assert_parse!(Coord::parse, "Z10.1;", (";", Coord::Z(10.1.into())));
     }
 
     #[test]
     fn spaces() {
-        assert_eq!(
-            Coord::parse("u -12.3;"),
-            Ok((";", Coord::U((-12.3).into())))
-        );
+        assert_parse!(Coord::parse, "u -12.3;", (";", Coord::U((-12.3).into())));
     }
 }

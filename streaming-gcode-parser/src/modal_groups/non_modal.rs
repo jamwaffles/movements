@@ -1,5 +1,6 @@
 //! Modal group 0, non-modal
 
+use crate::Span;
 use crate::{value::Value, word::parse_word};
 use nom::{
     branch::alt,
@@ -34,7 +35,7 @@ pub enum NonModal {
 }
 
 impl NonModal {
-    pub fn parse(i: &str) -> IResult<&str, Self> {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         let short = terminated(tag_no_case("G4"), not(digit1));
         let long = tag_no_case("G04");
 
@@ -48,6 +49,7 @@ impl NonModal {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::assert_parse;
     use nom::{
         error::{Error, ErrorKind},
         Err,
@@ -55,28 +57,30 @@ mod tests {
 
     #[test]
     fn test_dwell() {
-        assert_eq!(
-            NonModal::parse("G04 P0.5;"),
-            Ok((
+        assert_parse!(
+            NonModal::parse,
+            "G04 P0.5;",
+            (
                 ";",
                 NonModal::Dwell {
                     time: Value::Literal(0.5)
                 }
-            ))
+            )
         );
-        assert_eq!(
-            NonModal::parse("G4 P0.5;"),
-            Ok((
+        assert_parse!(
+            NonModal::parse,
+            "G4 P0.5;",
+            (
                 ";",
                 NonModal::Dwell {
                     time: Value::Literal(0.5)
                 }
-            ))
+            )
         );
 
         assert_eq!(
-            NonModal::parse("G01 P0.5;"),
-            Err(Err::Error(Error::new("G01 P0.5;", ErrorKind::Tag)))
+            NonModal::parse("G01 P0.5;".into()),
+            Err(Err::Error(Error::new("G01 P0.5;".into(), ErrorKind::Tag)))
         );
     }
 }
