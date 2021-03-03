@@ -97,10 +97,15 @@ fn main() {
         println!("    {:?}", path);
     }
 
-    println!("\nSummary\n");
+    println!("\nSummary");
 
-    for (letter, _items) in all.iter() {
+    for (letter, items) in all.iter() {
+        println!();
         println!("    {}", letter);
+
+        for item in items.iter().take(10) {
+            println!("      {}", item);
+        }
     }
     println!();
 }

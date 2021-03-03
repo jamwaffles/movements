@@ -6,6 +6,8 @@ use nom::{branch::alt, combinator::map, number::complete::double, IResult};
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     /// `100.2`
+    ///
+    /// NOTE: LinuxCNC uses `double` internally as far as I can see.
     Literal(f64),
     /// `#2250`
     Parameter(Parameter),
