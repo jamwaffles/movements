@@ -55,10 +55,13 @@ pub enum Statement<'a> {
     Comment { comment: &'a str, kind: CommentKind },
 
     /// Set parameter, e.g. `#5550 = [12 + 13]`.
-    SetParameter { parameter: Parameter, value: Value },
+    SetParameter {
+        parameter: Parameter<'a>,
+        value: Value<'a>,
+    },
 
     /// Non modal G codes
-    NonModal(NonModal),
+    NonModal(NonModal<'a>),
 
     /// Modal group 1: motion
     Motion(Motion),
@@ -79,7 +82,7 @@ pub enum Statement<'a> {
     Units(Units),
 
     /// Modal group 7: cutter comp
-    CutterCompensation(CutterCompensation),
+    CutterCompensation(CutterCompensation<'a>),
 
     /// Modal group 12: coordinate system
     CoordinateSystem(CoordinateSystem),
@@ -88,24 +91,24 @@ pub enum Statement<'a> {
     Spindle(Spindle),
 
     /// Axis value
-    Coord(Coord),
+    Coord(Coord<'a>),
 
     /// Tool change.
     ToolChange,
 
     /// Feed rate.
-    FeedRate(Value),
+    FeedRate(Value<'a>),
 
     /// Spindle speed.
-    SpindleSpeed(Value),
+    SpindleSpeed(Value<'a>),
 
     /// Tool number.
-    ToolNumber(Value),
+    ToolNumber(Value<'a>),
 
     /// Dynamic token whose code is evaluated at runtime.
     ///
     /// When parsed, `letter` is transformed to lowercase.
-    Dynamic { letter: char, number: Value },
+    Dynamic { letter: char, number: Value<'a> },
 }
 
 impl Statement<'static> {

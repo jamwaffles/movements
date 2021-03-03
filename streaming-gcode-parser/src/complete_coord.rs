@@ -1,4 +1,5 @@
 use crate::{value::Value, word::parse_word};
+use core::ops::{Index, IndexMut};
 use nom::{
     branch::alt,
     bytes::complete::tag,
@@ -21,7 +22,6 @@ use nom::{
     sequence::{separated_pair, terminated},
     IResult,
 };
-use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Coord {

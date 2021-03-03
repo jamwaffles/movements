@@ -1,22 +1,22 @@
-use std::fmt;
+use core::fmt;
 
 use crate::{expression::Expression, parameter::Parameter, Span};
 use nom::{branch::alt, combinator::map, number::complete::double, IResult};
 /// Value.
 #[derive(Debug, PartialEq, Clone)]
-pub enum Value {
+pub enum Value<'a> {
     /// `100.2`
     ///
     /// NOTE: LinuxCNC uses `double` internally as far as I can see.
     Literal(f64),
     /// `#2250`
-    Parameter(Parameter),
+    Parameter(Parameter<'a>),
     /// `[900 + 3 / #2250]`
-    Expression(Expression),
+    Expression(Expression<'a>),
 }
 
-impl Value {
-    pub fn parse(i: Span) -> IResult<Span, Self> {
+impl<'a> Value<'a> {
+    pub fn parse(i: Span<'a>) -> IResult<Span<'a>, Self> {
         alt((
             map(double, Value::Literal),
             map(Parameter::parse, Value::Parameter),
@@ -25,7 +25,7 @@ impl Value {
     }
 }
 
-impl fmt::Display for Value {
+impl fmt::Display for Value<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             // TODO: This truncation is stupid but it makes for easier debugging
@@ -36,25 +36,25 @@ impl fmt::Display for Value {
     }
 }
 
-impl From<f64> for Value {
+impl From<f64> for Value<'_> {
     fn from(other: f64) -> Self {
         Self::Literal(other)
     }
 }
 
-impl From<f32> for Value {
+impl From<f32> for Value<'_> {
     fn from(other: f32) -> Self {
         Self::Literal(other.into())
     }
 }
 
-impl From<i32> for Value {
+impl From<i32> for Value<'_> {
     fn from(other: i32) -> Self {
         Self::Literal(other.into())
     }
 }
 
-impl From<u32> for Value {
+impl From<u32> for Value<'_> {
     fn from(other: u32) -> Self {
         Self::Literal(other.into())
     }

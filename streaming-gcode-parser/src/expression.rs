@@ -11,12 +11,12 @@ use nom::{
 
 /// Something wrapped in square braces, e.g. `[200 - 3]`.
 #[derive(Debug, PartialEq, Clone)]
-pub struct Expression {
-    pub(crate) tokens: Vec<ExpressionToken>,
+pub struct Expression<'a> {
+    pub(crate) tokens: Vec<ExpressionToken<'a>>,
 }
 
-impl Expression {
-    pub fn parse(i: Span) -> IResult<Span, Expression> {
+impl<'a> Expression<'a> {
+    pub fn parse(i: Span<'a>) -> IResult<Span<'a>, Expression> {
         let (i, tokens) = delimited(
             char('['),
             many0(terminated(ExpressionToken::parse, space0)),
@@ -28,13 +28,13 @@ impl Expression {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum ExpressionToken {
-    Value(Value),
-    Expression(Expression),
+pub enum ExpressionToken<'a> {
+    Value(Value<'a>),
+    Expression(Expression<'a>),
     Operator(Operator),
 }
 
-impl ExpressionToken {
+impl ExpressionToken<'_> {
     fn parse(i: Span) -> IResult<Span, ExpressionToken> {
         alt((
             map(Value::parse, ExpressionToken::Value),

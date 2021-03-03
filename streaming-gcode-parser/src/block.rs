@@ -1,5 +1,6 @@
 use crate::statement::Token;
 use crate::Span;
+use core::str::FromStr;
 use nom::{
     bytes::complete::tag_no_case,
     character::complete::{char, digit1, space0},
@@ -8,7 +9,6 @@ use nom::{
     sequence::{preceded, separated_pair},
     IResult,
 };
-use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Block<'a> {
@@ -43,7 +43,7 @@ impl<'a> Block<'a> {
     fn parse_line_number(i: Span) -> IResult<Span, Option<u32>> {
         opt(map_res(
             separated_pair(tag_no_case("N"), space0, digit1),
-            |(_, number): (_, Span)| u32::from_str(&number.to_string()),
+            |(_, number): (_, Span)| u32::from_str(number.fragment()),
         ))(i)
     }
 

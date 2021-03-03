@@ -14,13 +14,13 @@ use nom::{
 };
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum NonModal {
+pub enum NonModal<'a> {
     /// `G4`
-    Dwell { time: Value },
+    Dwell { time: Value<'a> },
 }
 
-impl NonModal {
-    pub fn parse(i: Span) -> IResult<Span, Self> {
+impl<'a> NonModal<'a> {
+    pub fn parse(i: Span<'a>) -> IResult<Span<'a>, Self> {
         let short = terminated(tag_no_case("G4"), not(digit1));
         let long = tag_no_case("G04");
 

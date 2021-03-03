@@ -6,30 +6,30 @@ use nom::{
 };
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Parameter {
+pub enum Parameter<'a> {
     /// `#<local>`
-    Local(String),
+    Local(&'a str),
     /// `#<_global>`
-    Global(String),
+    Global(&'a str),
     /// `#5520`
     Index(usize),
     /// `#[220 + 5]`
     /// `#[220 + #50]`
-    Dynamic(Expression),
+    Dynamic(Expression<'a>),
 }
 
-impl Parameter {
-    pub fn parse(i: Span) -> IResult<Span, Self> {
+impl<'a> Parameter<'a> {
+    pub fn parse(i: Span<'a>) -> IResult<Span<'a>, Self> {
         let (i, param) = preceded(
             char('#'),
             alt((
                 map(
                     delimited(tag("<_"), take_until(">"), char('>')),
-                    |name: Span| Self::Global(name.to_string()),
+                    |name: Span| Self::Global(name.fragment()),
                 ),
                 map(
                     delimited(char('<'), take_until(">"), char('>')),
-                    |name: Span| Self::Local(name.to_string()),
+                    |name: Span| Self::Local(name.fragment()),
                 ),
                 map_res(digit1, |bytes: Span| bytes.parse().map(Self::Index)),
                 map(Expression::parse, Self::Dynamic),
@@ -44,17 +44,17 @@ impl Parameter {
 mod tests {
     use super::*;
     use crate::assert_parse;
-    use crate::{
-        expression::{ExpressionToken, Operator},
-        value::Value,
-    };
+    use crate::expression::Expression;
+    use crate::expression::ExpressionToken;
+    use crate::expression::Operator;
+    use crate::Value;
 
     #[test]
     fn local() {
         assert_parse!(
             Parameter::parse,
             "#<testo>",
-            ("", Parameter::Local(String::from("testo")))
+            ("", Parameter::Local("testo"))
         );
     }
 
@@ -63,7 +63,7 @@ mod tests {
         assert_parse!(
             Parameter::parse,
             "#<_testo>",
-            ("", Parameter::Global(String::from("testo")))
+            ("", Parameter::Global("testo"))
         );
     }
 

@@ -8,25 +8,25 @@ use nom::{
 };
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum CutterCompensation {
+pub enum CutterCompensation<'a> {
     /// `G40`
     Off,
 
     /// `G41`
     Left {
         /// Optional tool number to read offset from.
-        tool_number: Option<Value>,
+        tool_number: Option<Value<'a>>,
     },
 
     /// `G42`
     Right {
         /// Optional tool number to read offset from.
-        tool_number: Option<Value>,
+        tool_number: Option<Value<'a>>,
     },
 }
 
-impl CutterCompensation {
-    pub fn parse(i: Span) -> IResult<Span, Self> {
+impl<'a> CutterCompensation<'a> {
+    pub fn parse(i: Span<'a>) -> IResult<Span<'a>, Self> {
         let tool_number = |tag: &'static str| {
             map(
                 separated_pair(tag_no_case(tag), space0, opt(parse_word(tag_no_case("D")))),

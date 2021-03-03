@@ -1,10 +1,9 @@
 //! Find words that are parsed but are unknown.
 
 use glob::glob;
-use std::fs::read_to_string;
-
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fs::read_to_string;
 use std::path::PathBuf;
 use streaming_gcode_parser::{Program, Statement};
 
