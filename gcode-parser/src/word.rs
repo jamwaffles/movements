@@ -1,4 +1,6 @@
 use crate::ParseInput;
+use core::fmt;
+use core::str::FromStr;
 use nom::character::complete::anychar;
 use nom::character::complete::space0;
 use nom::combinator::map;
@@ -8,8 +10,6 @@ use nom::error::ParseError;
 use nom::number::complete::recognize_float;
 use nom::sequence::separated_pair;
 use nom::IResult;
-use std::fmt;
-use std::str::FromStr;
 
 /// A gcode word
 ///

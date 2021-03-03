@@ -2,9 +2,9 @@
 
 use crate::word::word;
 use crate::ParseInput;
+use core::convert::{TryFrom, TryInto};
 use nom::combinator::map_opt;
 use nom::IResult;
-use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Spindle {

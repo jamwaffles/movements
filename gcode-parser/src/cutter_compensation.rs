@@ -2,9 +2,9 @@
 
 use crate::word::word;
 use crate::ParseInput;
+use core::str::FromStr;
 use nom::combinator::map;
 use nom::IResult;
-use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum CutterCompensation {

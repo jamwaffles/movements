@@ -1,5 +1,6 @@
 use crate::Axes;
 use crate::ParseInput;
+use core::ops::Index;
 use nom::character::complete::anychar;
 use nom::character::complete::space0;
 use nom::error::ParseError;
@@ -7,7 +8,6 @@ use nom::number::complete::float;
 use nom::sequence::preceded;
 use nom::sequence::separated_pair;
 use nom::{error::ErrorKind, Err, IResult};
-use std::ops::Index;
 
 #[derive(Debug, PartialEq, Default, Clone)]
 pub struct Coord {

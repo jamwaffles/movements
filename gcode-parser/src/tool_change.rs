@@ -2,9 +2,9 @@
 
 use crate::word::word;
 use crate::ParseInput;
+use core::convert::{TryFrom, TryInto};
 use nom::combinator::map_res;
 use nom::IResult;
-use std::convert::{TryFrom, TryInto};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum ToolChange {
