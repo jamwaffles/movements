@@ -1,4 +1,4 @@
-#![deny(intra_doc_link_resolution_failure)]
+#![deny(broken_intra_doc_links)]
 
 use crate::block::block;
 pub use crate::block::Block;
@@ -9,7 +9,7 @@ use nalgebra::VectorN;
 use nalgebra::U9;
 use nom::character::complete::line_ending;
 use nom::character::complete::multispace0;
-use nom::multi::separated_list;
+use nom::multi::separated_list0;
 use nom::sequence::delimited;
 use nom_locate::LocatedSpan;
 
@@ -90,16 +90,18 @@ impl<'a> GcodeProgram<'a> {
     pub fn from_str(text: &'a str) -> Result<Self, ProgramParseError> {
         let file = ParseInput::new(text);
 
-        let (remaining, blocks) =
-            delimited(multispace0, separated_list(line_ending, block), multispace0)(file).map_err(
-                |e| match e {
-                    nom::Err::Incomplete(_n) => unreachable!(),
-                    nom::Err::Error(e) | nom::Err::Failure(e) => ProgramParseError {
-                        failure_point: e.0,
-                        input: file,
-                    },
-                },
-            )?;
+        let (remaining, blocks) = delimited(
+            multispace0,
+            separated_list0(line_ending, block),
+            multispace0,
+        )(file)
+        .map_err(|e| match e {
+            nom::Err::Incomplete(_n) => unreachable!(),
+            nom::Err::Error(e) | nom::Err::Failure(e) => ProgramParseError {
+                failure_point: e.input,
+                input: file,
+            },
+        })?;
 
         if !remaining.fragment().is_empty() {
             Err(ProgramParseError {

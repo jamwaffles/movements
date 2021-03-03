@@ -47,8 +47,7 @@ pub fn non_modal(i: ParseInput) -> IResult<ParseInput, NonModal> {
 mod tests {
     use super::*;
     use crate::rem;
-    use nom::error::ErrorKind;
-    use nom::Err::Error;
+    use nom::error::{Error, ErrorKind};
 
     #[test]
     fn float_dwell() {
@@ -70,7 +69,7 @@ mod tests {
     fn requires_p_word() {
         assert_eq!(
             non_modal(ParseInput::new("G4")),
-            Err(Error((rem!("", 2), ErrorKind::Eof)))
+            Err(nom::Err::Error(Error::new(rem!("", 2), ErrorKind::Eof)))
         );
     }
 
@@ -78,7 +77,10 @@ mod tests {
     fn negative() {
         assert_eq!(
             non_modal(ParseInput::new("G4 P-1.0")),
-            Err(Error((rem!("P-1.0", 3), ErrorKind::Verify)))
+            Err(nom::Err::Error(Error::new(
+                rem!("P-1.0", 3),
+                ErrorKind::Verify
+            )))
         );
     }
 

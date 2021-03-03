@@ -6,7 +6,7 @@ use nom::character::complete::space0;
 use nom::combinator::map;
 use nom::combinator::map_res;
 use nom::combinator::verify;
-use nom::error::ParseError;
+use nom::error::{FromExternalError, ParseError};
 use nom::number::complete::recognize_float;
 use nom::sequence::separated_pair;
 use nom::IResult;
@@ -41,9 +41,9 @@ where
 
 pub fn word<'a, V, E>(
     search: char,
-) -> impl Fn(ParseInput<'a>) -> IResult<ParseInput<'a>, Word<V>, E>
+) -> impl FnMut(ParseInput<'a>) -> IResult<ParseInput<'a>, Word<V>, E>
 where
-    E: ParseError<ParseInput<'a>>,
+    E: ParseError<ParseInput<'a>> + FromExternalError<ParseInput<'a>, V::Err>,
     V: FromStr,
 {
     map(

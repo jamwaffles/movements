@@ -35,8 +35,7 @@ pub fn motion(i: ParseInput) -> IResult<ParseInput, Motion> {
 mod tests {
     use super::*;
     use crate::rem;
-    use nom::error::ErrorKind;
-    use nom::Err::Error;
+    use nom::error::{Error, ErrorKind};
 
     #[test]
     fn rapid() {
@@ -66,11 +65,17 @@ mod tests {
     fn ignore_unknown() {
         assert_eq!(
             motion(ParseInput::new("G17")),
-            Err(Error((rem!("G17", 0), ErrorKind::MapRes)))
+            Err(nom::Err::Error(Error::new(
+                rem!("G17", 0),
+                ErrorKind::MapRes
+            )))
         );
         assert_eq!(
             motion(ParseInput::new("G90")),
-            Err(Error((rem!("G90", 0), ErrorKind::MapRes)))
+            Err(nom::Err::Error(Error::new(
+                rem!("G90", 0),
+                ErrorKind::MapRes
+            )))
         );
     }
 }

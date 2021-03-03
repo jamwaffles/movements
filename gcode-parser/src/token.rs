@@ -86,9 +86,11 @@ pub enum TokenType {
     NonModal(NonModal),
 }
 
-pub fn token_parser<'a, P>(parser: P) -> impl Fn(ParseInput<'a>) -> IResult<ParseInput<'a>, Token>
+pub fn token_parser<'a, P>(
+    mut parser: P,
+) -> impl FnMut(ParseInput<'a>) -> IResult<ParseInput<'a>, Token>
 where
-    P: Fn(ParseInput<'a>) -> IResult<ParseInput<'a>, TokenType>,
+    P: FnMut(ParseInput<'a>) -> IResult<ParseInput<'a>, TokenType>,
 {
     move |i| {
         let (i, start_pos) = position(i)?;
@@ -137,18 +139,18 @@ pub fn token(i: ParseInput) -> IResult<ParseInput, Token> {
 mod tests {
     use super::*;
     use crate::{rem, tok};
-    use nom::error::ErrorKind;
-    use nom::Err::Error;
+    use nom::error::{Error, ErrorKind};
+    // use nom::Err::Error;
 
     #[test]
     fn invalid_tool_numbers() {
         assert_eq!(
             token(ParseInput::new("T-2")),
-            Err(Error((rem!("T-2"), ErrorKind::Verify)))
+            Err(nom::Err::Error(Error::new(rem!("T-2"), ErrorKind::Verify)))
         );
         assert_eq!(
             token(ParseInput::new("T1.2")),
-            Err(Error((rem!("T1.2"), ErrorKind::Verify)))
+            Err(nom::Err::Error(Error::new(rem!("T1.2"), ErrorKind::Verify)))
         );
     }
 
@@ -167,11 +169,17 @@ mod tests {
     fn negative_feed() {
         assert_eq!(
             token(ParseInput::new("F-0.0")),
-            Err(Error((rem!("F-0.0"), ErrorKind::Verify)))
+            Err(nom::Err::Error(Error::new(
+                rem!("F-0.0"),
+                ErrorKind::Verify
+            )))
         );
         assert_eq!(
             token(ParseInput::new("F-102")),
-            Err(Error((rem!("F-102"), ErrorKind::Verify)))
+            Err(nom::Err::Error(Error::new(
+                rem!("F-102"),
+                ErrorKind::Verify
+            )))
         );
     }
 
@@ -179,7 +187,10 @@ mod tests {
     fn does_not_parse_line_number() {
         assert_eq!(
             token(ParseInput::new("N1 G40")),
-            Err(Error((rem!("N1 G40", 0, 1), nom::error::ErrorKind::Verify)))
+            Err(nom::Err::Error(Error::new(
+                rem!("N1 G40", 0, 1),
+                nom::error::ErrorKind::Verify
+            )))
         );
     }
 
@@ -211,7 +222,7 @@ mod tests {
 
         assert_eq!(
             token(ParseInput::new("S-200.0")),
-            Err(Error((
+            Err(nom::Err::Error(Error::new(
                 rem!("S-200.0", 0, 1),
                 nom::error::ErrorKind::Verify
             )))
