@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "gcode-parser",
+    "gcode-parser-old",
     # "gcode-validator",
     "gcode-interpreter",
     "pathviewer",
@@ -9,6 +9,6 @@ members = [
 ]
 
 [patch.crates-io]
-gcode-parser = { path = "gcode-parser" }
+gcode-parser = { path = "gcode-parser-old" }
 gcode-interpreter = { path = "gcode-interpreter" }
 streaming-gcode-parser = { path = "streaming-gcode-parser" }
