@@ -22,7 +22,7 @@ use nom_locate::position;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token<'a> {
     pub position: Span<'a>,
-    pub statement: Statement,
+    pub statement: Statement<'a>,
 }
 
 impl<'a> Token<'a> {
@@ -50,9 +50,9 @@ pub enum CommentKind {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Statement {
+pub enum Statement<'a> {
     /// Comment.
-    Comment { comment: String, kind: CommentKind },
+    Comment { comment: &'a str, kind: CommentKind },
 
     /// Set parameter, e.g. `#5550 = [12 + 13]`.
     SetParameter { parameter: Parameter, value: Value },
@@ -108,8 +108,8 @@ pub enum Statement {
     Dynamic { letter: char, number: Value },
 }
 
-impl Statement {
-    pub(crate) fn to_token<'a>(self, offset: usize, line: u32) -> Token<'a> {
+impl Statement<'static> {
+    pub(crate) fn to_token(self, offset: usize, line: u32) -> Token<'static> {
         let span = unsafe { Span::new_from_raw_offset(offset, line, "", ()) };
 
         Token {
@@ -118,6 +118,15 @@ impl Statement {
         }
     }
 
+    fn comment(text: &'static str, kind: CommentKind) -> Self {
+        Self::Comment {
+            comment: text,
+            kind,
+        }
+    }
+}
+
+impl<'s> Statement<'s> {
     fn parse_set_param(i: Span) -> IResult<Span, (Parameter, Value)> {
         separated_pair(
             Parameter::parse,
@@ -126,15 +135,15 @@ impl Statement {
         )(i)
     }
 
-    fn parse_comment(i: Span) -> IResult<Span, (String, CommentKind)> {
+    fn parse_comment(i: Span<'s>) -> IResult<Span, (&'s str, CommentKind)> {
         alt((
             map(
                 preceded(char(';'), take_till(|c| c == '\r' || c == '\n')),
-                |comment: Span| (comment.trim().to_string(), CommentKind::Line),
+                |comment: Span| (comment.trim(), CommentKind::Line),
             ),
             map(
                 delimited(char('('), take_until(")"), char(')')),
-                |comment: Span| (comment.trim().to_string(), CommentKind::Delimited),
+                |comment: Span| (comment.trim(), CommentKind::Delimited),
             ),
         ))(i)
     }
@@ -142,7 +151,7 @@ impl Statement {
     /// Parses anything that isn't a line number or block delete.
     ///
     /// Line numbers and block delete hold special positions in the block, so are parsed separately.
-    pub fn parse(i: Span) -> IResult<Span, Self> {
+    pub fn parse(i: Span<'s>) -> IResult<Span<'s>, Self> {
         alt((
             // ---
             // G words
@@ -197,13 +206,6 @@ impl Statement {
                 |(letter, number)| Self::Dynamic { letter, number },
             ),
         ))(i)
-    }
-
-    pub fn comment(text: &str, kind: CommentKind) -> Self {
-        Self::Comment {
-            comment: text.to_string(),
-            kind,
-        }
     }
 }
 
