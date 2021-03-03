@@ -7,10 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nom = "6.0.0"
+nom = "6.1.2"
 # Not for the core lib, but the scripty helper binary things use it.
 glob = "0.3.0"
-nom_locate = { git = "https://github.com/fflorent/nom_locate.git" }
+nom_locate = "3.0.0"
 
 [build-dependencies]
 glob = "0.3.0"
