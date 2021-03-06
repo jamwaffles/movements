@@ -5,7 +5,8 @@ members = [
     "gcode-interpreter",
     "pathviewer",
     "realtime-test",
-    "streaming-gcode-parser"
+    "streaming-gcode-parser",
+    "ramp-1d-trapezoidal"
 ]
 
 [patch.crates-io]
