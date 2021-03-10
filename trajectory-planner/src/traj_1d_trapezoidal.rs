@@ -7,9 +7,9 @@ fn second_order(t: f32, initial_pos: f32, initial_vel: f32, accel: f32) -> f32 {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Phase {
-    duration: f32,
-    distance: f32,
+pub struct Phase {
+    pub duration: f32,
+    pub distance: f32,
 }
 
 impl Phase {
@@ -25,15 +25,15 @@ impl Phase {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Limits {
-    acceleration: f32,
-    velocity: f32,
+pub struct Limits {
+    pub acceleration: f32,
+    pub velocity: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Point {
-    position: f32,
-    velocity: f32,
+pub struct Point {
+    pub position: f32,
+    pub velocity: f32,
 }
 
 impl Display for Point {
@@ -43,7 +43,7 @@ impl Display for Point {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct TrapezoidalLineSegment {
+pub struct TrapezoidalLineSegment {
     start_phase: Phase,
     cruise_phase: Phase,
     end_phase: Phase,
@@ -56,6 +56,8 @@ struct TrapezoidalLineSegment {
     /// This may be clamped lower than `limits.velocity` if velocity limit cannot be reached in
     /// time.
     max_velocity: f32,
+
+    duration: f32,
 }
 
 impl TrapezoidalLineSegment {
@@ -118,10 +120,11 @@ impl TrapezoidalLineSegment {
             end,
             limits,
             max_velocity,
+            duration: start_phase.duration + cruise_phase.duration + end_phase.duration,
         }
     }
 
-    pub fn position(&self, time: f32) -> Option<Point> {
+    pub fn position(&self, time: f32) -> Option<(Point, f32)> {
         // Acceleration phase
         if 0.0 <= time && time < self.start_phase.duration {
             let position = second_order(
@@ -133,7 +136,7 @@ impl TrapezoidalLineSegment {
 
             let velocity = self.start.velocity + self.limits.acceleration * time;
 
-            return Some(Point { position, velocity });
+            return Some((Point { position, velocity }, self.limits.acceleration));
         }
 
         // Subtract start duration if we're in cruise/end phase
@@ -145,10 +148,13 @@ impl TrapezoidalLineSegment {
 
             let position = second_order(time, initial_pos, self.max_velocity, 0.0);
 
-            return Some(Point {
-                position,
-                velocity: self.max_velocity,
-            });
+            return Some((
+                Point {
+                    position,
+                    velocity: self.max_velocity,
+                },
+                0.0,
+            ));
         }
 
         // Subtract cruise duration (we already subtracted start duration above)
@@ -174,11 +180,32 @@ impl TrapezoidalLineSegment {
             // Max velocity minus a given value as we're decelerating
             let velocity = self.max_velocity - self.limits.acceleration * time;
 
-            return Some(Point { position, velocity });
+            return Some((Point { position, velocity }, -self.limits.acceleration));
         }
 
         // Past end of segment
         None
+    }
+
+    /// Get trapezoidal line segment's duration.
+    pub fn duration(&self) -> f32 {
+        self.duration
+    }
+
+    pub fn set_velocity_limit(&mut self, limit: f32) {
+        self.limits.velocity = limit;
+    }
+
+    pub fn set_acceleration_limit(&mut self, limit: f32) {
+        self.limits.acceleration = limit;
+    }
+
+    pub fn set_start_velocity(&mut self, velocity: f32) {
+        self.start.velocity = velocity;
+    }
+
+    pub fn set_end_velocity(&mut self, velocity: f32) {
+        self.start.velocity = velocity;
     }
 }
 
@@ -212,7 +239,8 @@ mod tests {
             println!(
                 "{:04} -> {}",
                 ms,
-                pos.map(|p| p.to_string()).unwrap_or_else(String::new)
+                pos.map(|(p, _accel)| p.to_string())
+                    .unwrap_or_else(String::new)
             );
         }
     }
