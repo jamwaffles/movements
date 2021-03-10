@@ -1,0 +1,36 @@
+[package]
+name = "ramp-1d-trapezoidal"
+version = "0.1.0"
+authors = ["James Waples <james@wapl.es>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2.71"
+console_log = "0.2.0"
+console_error_panic_hook = "0.1.6"
+
+[dependencies.web-sys]
+version = "0.3.48"
+features = [
+  'CanvasRenderingContext2d',
+  'CssStyleDeclaration',
+  'Document',
+  'Element',
+  'EventTarget',
+  'HtmlCanvasElement',
+  'HtmlInputElement',
+  'HtmlDivElement',
+  'HtmlElement',
+  'InputEvent',
+  'MouseEvent',
+  'Node',
+  'Window',
+  'console',
+  'Event'
+]
