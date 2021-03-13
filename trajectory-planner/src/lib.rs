@@ -1,10 +1,12 @@
+mod common;
 mod traj_1d_trapezoidal;
 
+use common::{Limits, Point};
 use console_error_panic_hook;
 use std::cell::RefCell;
 use std::panic;
 use std::rc::Rc;
-use traj_1d_trapezoidal::{Limits, Point, TrapezoidalLineSegment};
+use traj_1d_trapezoidal::TrapezoidalLineSegment;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::CanvasRenderingContext2d;
