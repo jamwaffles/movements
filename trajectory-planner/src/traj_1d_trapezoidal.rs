@@ -58,6 +58,8 @@ pub struct TrapezoidalLineSegment {
     max_velocity: f32,
 
     duration: f32,
+    start_accel: f32,
+    end_accel: f32,
 }
 
 impl TrapezoidalLineSegment {
@@ -77,10 +79,33 @@ impl TrapezoidalLineSegment {
             velocity: end_vel,
         } = end;
 
-        let direction = (end_pos - start_pos).signum();
+        // Point at which velocity = 0 when decelerating from initial velocity (paper: Xstop)
+        let full_stop_position = {
+            let time_to_stop = start_vel / max_acc;
 
-        let start_phase = Phase::new(start_vel, max_vel, max_acc);
-        let end_phase = Phase::new(max_vel, end_vel, -max_acc);
+            log::trace!("time_to_stop {}", time_to_stop);
+
+            let displacement = 0.5 * start_vel * time_to_stop;
+
+            displacement
+        };
+
+        let start_accel_direction = (end_pos - start_pos).signum();
+        let end_accel_direction = -1.0;
+
+        let start_accel_direction = if start_vel > limits.velocity {
+            start_accel_direction * -1.0
+        } else {
+            start_accel_direction
+        };
+
+        log::trace!("fsp {}, sad {}", full_stop_position, start_accel_direction);
+
+        let start_accel = max_acc * start_accel_direction;
+        let end_accel = max_acc * end_accel_direction;
+
+        let start_phase = Phase::new(start_vel, max_vel, start_accel);
+        let end_phase = Phase::new(max_vel, end_vel, end_accel);
 
         let cruise_time =
             (end_pos - (start_pos + start_phase.distance + end_phase.distance)) / max_vel;
@@ -98,8 +123,8 @@ impl TrapezoidalLineSegment {
                 (max_acc * (end_pos - start_pos) + 0.5 * start_vel.powi(2)).sqrt();
 
             // Recompute start/end phases with new clamped velocity
-            let start_phase = Phase::new(start_vel, clamped_max_vel, max_acc);
-            let end_phase = Phase::new(clamped_max_vel, end_vel, -max_acc);
+            let start_phase = Phase::new(start_vel, clamped_max_vel, start_accel);
+            let end_phase = Phase::new(clamped_max_vel, end_vel, end_accel);
 
             // Wedge profile - no cruise
             let cruise_phase = Phase {
@@ -120,6 +145,8 @@ impl TrapezoidalLineSegment {
             end,
             limits,
             max_velocity,
+            start_accel,
+            end_accel,
             duration: start_phase.duration + cruise_phase.duration + end_phase.duration,
         }
     }
@@ -131,12 +158,12 @@ impl TrapezoidalLineSegment {
                 time,
                 self.start.position,
                 self.start.velocity,
-                self.limits.acceleration,
+                self.start_accel,
             );
 
-            let velocity = self.start.velocity + self.limits.acceleration * time;
+            let velocity = self.start.velocity + self.start_accel * time;
 
-            return Some((Point { position, velocity }, self.limits.acceleration));
+            return Some((Point { position, velocity }, self.start_accel));
         }
 
         // Subtract start duration if we're in cruise/end phase
@@ -170,17 +197,12 @@ impl TrapezoidalLineSegment {
                 0.0,
             );
 
-            let position = second_order(
-                time,
-                initial_pos,
-                self.max_velocity,
-                -self.limits.acceleration,
-            );
+            let position = second_order(time, initial_pos, self.max_velocity, self.end_accel);
 
             // Max velocity minus a given value as we're decelerating
-            let velocity = self.max_velocity - self.limits.acceleration * time;
+            let velocity = self.max_velocity + self.end_accel * time;
 
-            return Some((Point { position, velocity }, -self.limits.acceleration));
+            return Some((Point { position, velocity }, self.end_accel));
         }
 
         // Past end of segment
@@ -192,20 +214,48 @@ impl TrapezoidalLineSegment {
         self.duration
     }
 
-    pub fn set_velocity_limit(&mut self, limit: f32) {
-        self.limits.velocity = limit;
+    pub fn set_velocity_limit(&mut self, velocity: f32) {
+        *self = Self::new(
+            Limits {
+                velocity,
+                ..self.limits
+            },
+            self.start,
+            self.end,
+        );
     }
 
-    pub fn set_acceleration_limit(&mut self, limit: f32) {
-        self.limits.acceleration = limit;
+    pub fn set_acceleration_limit(&mut self, acceleration: f32) {
+        *self = Self::new(
+            Limits {
+                acceleration,
+                ..self.limits
+            },
+            self.start,
+            self.end,
+        );
     }
 
     pub fn set_start_velocity(&mut self, velocity: f32) {
-        self.start.velocity = velocity;
+        *self = Self::new(
+            self.limits,
+            Point {
+                velocity,
+                ..self.start
+            },
+            self.end,
+        );
     }
 
     pub fn set_end_velocity(&mut self, velocity: f32) {
-        self.start.velocity = velocity;
+        *self = Self::new(
+            self.limits,
+            self.start,
+            Point {
+                velocity,
+                ..self.end
+            },
+        );
     }
 }
 
@@ -222,7 +272,7 @@ mod tests {
 
         let start = Point {
             position: 0.0,
-            velocity: 0.0,
+            velocity: 3.0,
         };
         let end = Point {
             position: 1.0,

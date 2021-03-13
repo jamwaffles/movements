@@ -1,5 +1,6 @@
 mod traj_1d_trapezoidal;
 
+use console_error_panic_hook;
 use std::cell::RefCell;
 use std::panic;
 use std::rc::Rc;
