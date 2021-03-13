@@ -1,21 +1,32 @@
-use std::fmt::Display;
+use nalgebra::Vector3;
 
 /// Second order polynomial, x(t) paper equation `(1)`.
-pub fn second_order(t: f32, initial_pos: f32, initial_vel: f32, accel: f32) -> f32 {
-    // TODO: Benchmark FMA
+pub fn second_order(
+    t: f32,
+    initial_pos: Vector3<f32>,
+    initial_vel: Vector3<f32>,
+    accel: Vector3<f32>,
+) -> Vector3<f32> {
     initial_pos + initial_vel * t + 0.5 * accel * t.powi(2)
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Phase {
     pub duration: f32,
-    pub distance: f32,
+    pub distance: Vector3<f32>,
 }
 
 impl Phase {
-    pub fn new(start_velocity: f32, end_velocity: f32, acceleration: f32) -> Self {
-        let time = (end_velocity - start_velocity) / acceleration;
-        let distance = second_order(time, 0.0, start_velocity, acceleration);
+    pub fn new(
+        start_velocity: Vector3<f32>,
+        end_velocity: Vector3<f32>,
+        acceleration: Vector3<f32>,
+    ) -> Self {
+        // FIXME: This shouldn't be `max()` but it'll do for now
+        let time = (end_velocity - start_velocity)
+            .component_div(&acceleration)
+            .max();
+        let distance = second_order(time, Vector3::zeros(), start_velocity, acceleration);
 
         Self {
             distance,
@@ -26,20 +37,14 @@ impl Phase {
 
 #[derive(Debug, Clone, Copy)]
 pub struct Point {
-    pub position: f32,
-    pub velocity: f32,
-}
-
-impl Display for Point {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "P: {:0.4}, V: {:0.4}", self.position, self.velocity)
-    }
+    pub position: Vector3<f32>,
+    pub velocity: Vector3<f32>,
 }
 
 #[derive(Debug, Clone, Copy)]
 pub struct Limits {
-    pub acceleration: f32,
-    pub velocity: f32,
+    pub acceleration: Vector3<f32>,
+    pub velocity: Vector3<f32>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -55,11 +60,11 @@ pub struct TrapezoidalLineSegment {
     ///
     /// This may be clamped lower than `limits.velocity` if velocity limit cannot be reached in
     /// time.
-    max_velocity: f32,
+    max_velocity: Vector3<f32>,
 
     duration: f32,
-    start_accel: f32,
-    end_accel: f32,
+    start_accel: Vector3<f32>,
+    end_accel: Vector3<f32>,
 }
 
 impl TrapezoidalLineSegment {
@@ -81,7 +86,8 @@ impl TrapezoidalLineSegment {
 
         // Point at which velocity = 0 when decelerating from initial velocity (paper: Xstop)
         let full_stop_position = {
-            let time_to_stop = start_vel / max_acc;
+            // FIXME: Should probably not be max() here
+            let time_to_stop = start_vel.component_div(&max_acc).max();
 
             log::trace!("time_to_stop {}", time_to_stop);
 
@@ -90,8 +96,8 @@ impl TrapezoidalLineSegment {
             displacement
         };
 
-        let start_accel_direction = (end_pos - start_pos).signum();
-        let end_accel_direction = -1.0;
+        let start_accel_direction = (end_pos - start_pos).map(f32::signum);
+        let end_accel_direction = Vector3::repeat(-1.0);
 
         let start_accel_direction = if start_vel > limits.velocity {
             start_accel_direction * -1.0
@@ -99,28 +105,30 @@ impl TrapezoidalLineSegment {
             start_accel_direction
         };
 
-        log::trace!("fsp {}, sad {}", full_stop_position, start_accel_direction);
-
-        let start_accel = max_acc * start_accel_direction;
-        let end_accel = max_acc * end_accel_direction;
+        let start_accel = max_acc.component_mul(&start_accel_direction);
+        let end_accel = max_acc.component_mul(&end_accel_direction);
 
         let start_phase = Phase::new(start_vel, max_vel, start_accel);
         let end_phase = Phase::new(max_vel, end_vel, end_accel);
 
-        let cruise_time =
-            (end_pos - (start_pos + start_phase.distance + end_phase.distance)) / max_vel;
+        let cruise_time = (end_pos - (start_pos + start_phase.distance + end_phase.distance))
+            .component_div(&max_vel)
+            // FIXME: Shouldn't be using max() here, but it'll do for now
+            .max();
 
         let cruise_phase = Phase {
             duration: cruise_time,
             // Cruise: No velocity change, acceleration of zero
-            distance: second_order(cruise_time, max_vel, max_vel, 0.0),
+            distance: second_order(cruise_time, max_vel, max_vel, Vector3::zeros()),
         };
 
         // Trajectory is too short for a cruise phase, denoted by a negative cruise duration. The
         // accel/decel ramps need to be shortened to create a wedge shaped profile.
         let (start_phase, cruise_phase, end_phase, max_velocity) = if cruise_phase.duration < 0.0 {
-            let clamped_max_vel =
-                (max_acc * (end_pos - start_pos) + 0.5 * start_vel.powi(2)).sqrt();
+            let clamped_max_vel = (max_acc.component_mul(&(end_pos - start_pos))
+                + 0.5 * start_vel.component_mul(&start_vel))
+            // In lieu of a `.component_sqrt()` method...
+            .map(|axis| axis.sqrt());
 
             // Recompute start/end phases with new clamped velocity
             let start_phase = Phase::new(start_vel, clamped_max_vel, start_accel);
@@ -129,7 +137,7 @@ impl TrapezoidalLineSegment {
             // Wedge profile - no cruise
             let cruise_phase = Phase {
                 duration: 0.0,
-                distance: 0.0,
+                distance: Vector3::zeros(),
             };
 
             (start_phase, cruise_phase, end_phase, clamped_max_vel)
@@ -151,7 +159,7 @@ impl TrapezoidalLineSegment {
         }
     }
 
-    pub fn position(&self, time: f32) -> Option<(Point, f32)> {
+    pub fn position(&self, time: f32) -> Option<(Point, Vector3<f32>)> {
         // Acceleration phase
         if 0.0 <= time && time < self.start_phase.duration {
             let position = second_order(
@@ -173,14 +181,14 @@ impl TrapezoidalLineSegment {
         if time < self.cruise_phase.duration {
             let initial_pos = self.start.position + self.start_phase.distance;
 
-            let position = second_order(time, initial_pos, self.max_velocity, 0.0);
+            let position = second_order(time, initial_pos, self.max_velocity, Vector3::zeros());
 
             return Some((
                 Point {
                     position,
                     velocity: self.max_velocity,
                 },
-                0.0,
+                Vector3::zeros(),
             ));
         }
 
@@ -194,7 +202,7 @@ impl TrapezoidalLineSegment {
                 self.cruise_phase.duration,
                 self.start.position + self.start_phase.distance,
                 self.max_velocity,
-                0.0,
+                Vector3::zeros(),
             );
 
             let position = second_order(time, initial_pos, self.max_velocity, self.end_accel);
@@ -209,12 +217,11 @@ impl TrapezoidalLineSegment {
         None
     }
 
-    /// Get trapezoidal line segment's duration.
     pub fn duration(&self) -> f32 {
         self.duration
     }
 
-    pub fn set_velocity_limit(&mut self, velocity: f32) {
+    pub fn set_velocity_limit(&mut self, velocity: Vector3<f32>) {
         *self = Self::new(
             Limits {
                 velocity,
@@ -225,7 +232,7 @@ impl TrapezoidalLineSegment {
         );
     }
 
-    pub fn set_acceleration_limit(&mut self, acceleration: f32) {
+    pub fn set_acceleration_limit(&mut self, acceleration: Vector3<f32>) {
         *self = Self::new(
             Limits {
                 acceleration,
@@ -236,7 +243,7 @@ impl TrapezoidalLineSegment {
         );
     }
 
-    pub fn set_start_velocity(&mut self, velocity: f32) {
+    pub fn set_start_velocity(&mut self, velocity: Vector3<f32>) {
         *self = Self::new(
             self.limits,
             Point {
@@ -247,7 +254,7 @@ impl TrapezoidalLineSegment {
         );
     }
 
-    pub fn set_end_velocity(&mut self, velocity: f32) {
+    pub fn set_end_velocity(&mut self, velocity: Vector3<f32>) {
         *self = Self::new(
             self.limits,
             self.start,
@@ -256,42 +263,5 @@ impl TrapezoidalLineSegment {
                 ..self.end
             },
         );
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn traj() {
-        let limits = Limits {
-            velocity: 2.0,
-            acceleration: 10.0,
-        };
-
-        let start = Point {
-            position: 0.0,
-            velocity: 3.0,
-        };
-        let end = Point {
-            position: 1.0,
-            velocity: 0.0,
-        };
-
-        let traj = TrapezoidalLineSegment::new(limits, start, end);
-
-        for ms in (0..=1000).step_by(10) {
-            let t = ms as f32 / 1000.0;
-
-            let pos = traj.position(t);
-
-            println!(
-                "{:04} -> {}",
-                ms,
-                pos.map(|(p, _accel)| p.to_string())
-                    .unwrap_or_else(String::new)
-            );
-        }
     }
 }

@@ -1,12 +1,12 @@
-mod common;
 mod traj_1d_trapezoidal;
+mod traj_nd_trapezoidal;
 
-use common::{Limits, Point};
 use console_error_panic_hook;
+use nalgebra::Vector3;
 use std::cell::RefCell;
 use std::panic;
 use std::rc::Rc;
-use traj_1d_trapezoidal::TrapezoidalLineSegment;
+use traj_nd_trapezoidal::{Limits, Point, TrapezoidalLineSegment};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::CanvasRenderingContext2d;
@@ -23,10 +23,13 @@ fn display_config(container: &Element, config: &TrapezoidalLineSegment) {
     container.set_inner_html(&format!("{:#?}", config));
 }
 
-fn display_hover(container: &Element, (time, pos, vel, acc): (f32, f32, f32, f32)) {
+fn display_hover(
+    container: &Element,
+    (time, pos, vel, acc): (f32, Vector3<f32>, Vector3<f32>, Vector3<f32>),
+) {
     container.set_inner_html(&format!(
         "Time:         {}\nPosition:     {}\nVelocity:     {}\nAcceleration: {}",
-        time, pos, vel, acc
+        time, pos[0], vel[0], acc[0]
     ));
 }
 
@@ -40,25 +43,6 @@ fn draw_profiles(
 
     let y_scale = 10.0;
 
-    // // Position
-    // context.begin_path();
-    // context.set_stroke_style(&("#000".into()));
-
-    // for i in 0..width {
-    //     let time = segment.duration() * i as f32 / width as f32;
-
-    //     let y = (height / 2) as f32 - segment.position(time) * y_scale;
-
-    //     if i == 0 {
-    //         context.move_to(0.0, y as f64);
-    //     } else {
-    //         context.line_to((width / width) as f64 * i as f64, y as f64);
-    //     }
-    // }
-
-    // context.stroke();
-    // context.close_path();
-
     let points = (0..width)
         .filter_map(|i| {
             let time = segment.duration() * i as f32 / width as f32;
@@ -66,6 +50,10 @@ fn draw_profiles(
             segment
                 .position(time)
                 .map(|(Point { position, velocity }, acceleration)| {
+                    let position = position[0];
+                    let velocity = velocity[0];
+                    let acceleration = acceleration[0];
+
                     let position = (height / 2) as f32 - position * y_scale;
                     let velocity = (height / 2) as f32 - velocity * y_scale;
                     let acceleration = (height / 2) as f32 - acceleration * y_scale;
@@ -158,16 +146,16 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
 
     let segment = TrapezoidalLineSegment::new(
         Limits {
-            velocity: 2.0,
-            acceleration: 5.0,
+            velocity: Vector3::repeat(2.0),
+            acceleration: Vector3::repeat(5.0),
         },
         Point {
-            position: 0.0,
-            velocity: 0.0,
+            position: Vector3::repeat(0.0),
+            velocity: Vector3::repeat(0.0),
         },
         Point {
-            position: 10.0,
-            velocity: 0.0,
+            position: Vector3::repeat(10.0),
+            velocity: Vector3::repeat(0.0),
         },
     );
 
@@ -196,6 +184,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
                 .value();
 
             let max_velocity = value.parse::<f32>().expect("Value is not valid f32");
+            let max_velocity = Vector3::repeat(max_velocity);
 
             segment.borrow_mut().set_velocity_limit(max_velocity);
 
@@ -226,6 +215,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
                 .value();
 
             let max_acceleration = value.parse::<f32>().expect("Value is not valid f32");
+            let max_acceleration = Vector3::repeat(max_acceleration);
 
             segment
                 .borrow_mut()
@@ -258,6 +248,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
                 .value();
 
             let start_velocity = value.parse::<f32>().expect("Value is not valid f32");
+            let start_velocity = Vector3::repeat(start_velocity);
 
             segment.borrow_mut().set_start_velocity(start_velocity);
 
@@ -288,6 +279,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
                 .value();
 
             let end_velocity = value.parse::<f32>().expect("Value is not valid f32");
+            let end_velocity = Vector3::repeat(end_velocity);
 
             segment.borrow_mut().set_end_velocity(end_velocity);
 
