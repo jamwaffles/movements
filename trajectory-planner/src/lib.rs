@@ -40,7 +40,26 @@ fn draw_profiles(
 ) {
     context.clear_rect(0.0, 0.0, width as f64, height as f64);
 
-    let y_scale = 10.0;
+    for i in 0..(Vector3::<f32>::zeros().len()) {
+        draw_axis_profiles(context, segment, width, height, i)
+    }
+}
+
+fn draw_axis_profiles(
+    context: &CanvasRenderingContext2d,
+    segment: &TrapezoidalLineSegment,
+    width: u32,
+    height: u32,
+    index: usize,
+) {
+    let y_scale = 20.0;
+
+    context.begin_path();
+    context.set_stroke_style(&("#aaa".into()));
+    context.move_to(0.0, height as f64 / 2.0);
+    context.line_to(width as f64, height as f64 / 2.0);
+    context.stroke();
+    context.close_path();
 
     let points = (0..width)
         .filter_map(|i| {
@@ -49,9 +68,9 @@ fn draw_profiles(
             segment
                 .position(time)
                 .map(|(Point { position, velocity }, acceleration)| {
-                    let position = position[0];
-                    let velocity = velocity[0];
-                    let acceleration = acceleration[0];
+                    let position = position[index];
+                    let velocity = velocity[index];
+                    let acceleration = acceleration[index];
 
                     let position = (height / 2) as f32 - position * y_scale;
                     let velocity = (height / 2) as f32 - velocity * y_scale;
@@ -132,7 +151,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
             .expect("Required input name end_velocity missing"),
     };
 
-    let width = 640;
+    let width = 1500;
     let height = 480;
 
     canvas.set_width(width);
@@ -150,11 +169,11 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         },
         Point {
             position: Vector3::repeat(0.0),
-            velocity: Vector3::repeat(0.0),
+            velocity: Vector3::new(2.0, 0.0, 3.0),
         },
         Point {
             position: Vector3::repeat(10.0),
-            velocity: Vector3::repeat(0.0),
+            velocity: Vector3::new(1.0, 0.0, 2.0),
         },
     );
 

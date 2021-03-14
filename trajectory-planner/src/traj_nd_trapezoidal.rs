@@ -2,11 +2,16 @@ use nalgebra::Vector3;
 
 /// Second order polynomial, x(t) paper equation `(1)`.
 pub fn second_order(
-    t: f32,
+    t: Vector3<f32>,
     initial_pos: Vector3<f32>,
     initial_vel: Vector3<f32>,
     accel: Vector3<f32>,
 ) -> Vector3<f32> {
+    initial_pos + initial_vel.component_mul(&t) + 0.5 * accel.component_mul(&t.component_mul(&t))
+}
+
+/// Second order polynomial, single axis version, x(t) paper equation `(1)`.
+fn second_order_single_axis(t: f32, initial_pos: f32, initial_vel: f32, accel: f32) -> f32 {
     initial_pos + initial_vel * t + 0.5 * accel * t.powi(2)
 }
 
@@ -23,9 +28,12 @@ impl Phase {
         end_velocity: Vector3<f32>,
         acceleration: Vector3<f32>,
     ) -> Self {
-        let time = (end_velocity - start_velocity).component_div(&acceleration);
-        // FIXME: Should not be max()
-        let distance = second_order(time.max(), Vector3::zeros(), start_velocity, acceleration);
+        let time = (end_velocity - start_velocity)
+            .component_div(&acceleration)
+            .abs();
+
+        let distance = second_order(time, Vector3::zeros(), start_velocity, acceleration);
+        log::debug!("Phase {:?} -> {:?}", time, distance);
 
         Self {
             distance,
@@ -45,6 +53,15 @@ impl Phase {
 pub struct Point {
     pub position: Vector3<f32>,
     pub velocity: Vector3<f32>,
+}
+
+impl Point {
+    fn zero() -> Self {
+        Self {
+            position: Vector3::zeros(),
+            velocity: Vector3::zeros(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -102,14 +119,18 @@ impl TrapezoidalLineSegment {
         //     displacement
         // };
 
-        let start_accel_direction = (end_pos - start_pos).map(f32::signum);
+        let mut start_accel_direction = (end_pos - start_pos).map(f32::signum);
         let end_accel_direction = Vector3::repeat(-1.0);
 
-        let start_accel_direction = if start_vel > limits.velocity {
-            start_accel_direction * -1.0
-        } else {
-            start_accel_direction
-        };
+        // Swap acceleration direction if start velocity is higher than velocity limit.
+        start_accel_direction
+            .iter_mut()
+            .enumerate()
+            .for_each(|(idx, axis)| {
+                if start_vel[idx] > limits.velocity[idx] {
+                    *axis *= -1.0
+                }
+            });
 
         let start_accel = max_acc.component_mul(&start_accel_direction);
         let end_accel = max_acc.component_mul(&end_accel_direction);
@@ -122,15 +143,14 @@ impl TrapezoidalLineSegment {
 
         let cruise_phase = Phase {
             duration: cruise_time,
-            // Cruise: No velocity change, acceleration of zero
-            // FIXME: Should not be max()
-            distance: second_order(cruise_time.max(), max_vel, max_vel, Vector3::zeros()),
+            // Cruise: No velocity change - acceleration of zero
+            distance: second_order(cruise_time, start_phase.distance, max_vel, Vector3::zeros()),
         };
 
         // Trajectory is too short for a cruise phase, denoted by a negative cruise duration. The
         // accel/decel ramps need to be shortened to create a wedge shaped profile.
         let (start_phase, cruise_phase, end_phase, max_velocity) =
-            if cruise_phase.duration < Vector3::zeros() {
+            if cruise_phase.duration.min() < 0.0 {
                 let clamped_max_vel = (max_acc.component_mul(&(end_pos - start_pos))
                     + 0.5 * start_vel.component_mul(&start_vel))
                 // In lieu of a `.component_sqrt()` method...
@@ -148,7 +168,7 @@ impl TrapezoidalLineSegment {
                 (start_phase, cruise_phase, end_phase, limits.velocity)
             };
 
-        Self {
+        let mut self_ = Self {
             start_phase,
             cruise_phase,
             end_phase,
@@ -159,75 +179,140 @@ impl TrapezoidalLineSegment {
             start_accel,
             end_accel,
             max_duration: (start_phase.duration + cruise_phase.duration + end_phase.duration).max(),
-        }
+        };
+
+        // self_.sync_multi();
+
+        self_
     }
 
-    pub fn position(&self, time: f32) -> Option<(Point, Vector3<f32>)> {
+    /// Get position, velocity and acceleration of a single axis at `time`.
+    fn pos(&self, time: f32, idx: usize) -> Option<(f32, f32, f32)> {
         // Acceleration phase
-        // FIXME: Should not be max()
-        if 0.0 <= time && time < self.start_phase.duration.max() {
-            let position = second_order(
+        if 0.0 <= time && time < self.start_phase.duration[idx] {
+            let position = second_order_single_axis(
                 time,
-                self.start.position,
-                self.start.velocity,
-                self.start_accel,
+                self.start.position[idx],
+                self.start.velocity[idx],
+                self.start_accel[idx],
             );
 
-            let velocity = self.start.velocity + self.start_accel * time;
+            let velocity = self.start.velocity[idx] + self.start_accel[idx] * time;
 
-            return Some((Point { position, velocity }, self.start_accel));
+            return Some((position, velocity, self.start_accel[idx]));
         }
 
         // Subtract start duration if we're in cruise/end phase
-        // FIXME: Should not be max()
-        let time = time - self.start_phase.duration.max();
+        let time = time - self.start_phase.duration[idx];
 
         // Cruise phase
-        // FIXME: Should not be max()
-        if time < self.cruise_phase.duration.max() {
-            let initial_pos = self.start.position + self.start_phase.distance;
+        if time < self.cruise_phase.duration[idx] {
+            let initial_pos = self.start.position[idx] + self.start_phase.distance[idx];
 
-            let position = second_order(time, initial_pos, self.max_velocity, Vector3::zeros());
+            let position = second_order_single_axis(time, initial_pos, self.max_velocity[idx], 0.0);
 
-            return Some((
-                Point {
-                    position,
-                    velocity: self.max_velocity,
-                },
-                Vector3::zeros(),
-            ));
+            return Some((position, self.max_velocity[idx], 0.0));
         }
 
         // Subtract cruise duration (we already subtracted start duration above)
-        // FIXME: Should not be max()
-        let time = time - self.cruise_phase.duration.max();
+        let time = time - self.cruise_phase.duration[idx];
 
         // Decel phase
-        // FIXME: Should not be max()
-        if time <= self.end_phase.duration.max() {
+        if time <= self.end_phase.duration[idx] {
             // Position at end of cruise phase
-            let initial_pos = second_order(
-                // FIXME: Should not be max()
-                self.cruise_phase.duration.max(),
-                self.start.position + self.start_phase.distance,
-                self.max_velocity,
-                Vector3::zeros(),
+            let initial_pos = second_order_single_axis(
+                self.cruise_phase.duration[idx],
+                self.start.position[idx] + self.start_phase.distance[idx],
+                self.max_velocity[idx],
+                0.0,
             );
 
-            let position = second_order(time, initial_pos, self.max_velocity, self.end_accel);
+            let position = second_order_single_axis(
+                time,
+                initial_pos,
+                self.max_velocity[idx],
+                self.end_accel[idx],
+            );
 
             // Max velocity minus a given value as we're decelerating
-            let velocity = self.max_velocity + self.end_accel * time;
+            let velocity = self.max_velocity[idx] + self.end_accel[idx] * time;
 
-            return Some((Point { position, velocity }, self.end_accel));
+            return Some((position, velocity, self.end_accel[idx]));
         }
 
-        // Past end of segment
+        // Past end of segment for this axis
         None
     }
 
+    pub fn position(&self, time: f32) -> Option<(Point, Vector3<f32>)> {
+        let mut point = Point::zero();
+        let mut accel = Vector3::zeros();
+
+        for i in 0..self.max_velocity.len() {
+            let (pos, vel, acc) = self.pos(time, i).unwrap_or((0.0, 0.0, 0.0));
+
+            point.position[i] = pos;
+            point.velocity[i] = vel;
+            accel[i] = acc;
+        }
+
+        Some((point, accel))
+    }
+
+    // Synchronise multiple axes.
+    fn sync_multi(&mut self) {
+        let Self {
+            start_phase,
+            cruise_phase,
+            end_phase,
+            max_duration,
+            max_velocity,
+            ..
+        } = *self;
+
+        // Paper variable `T`, longest duration among all axes.
+        let max_duration = Vector3::repeat(max_duration);
+
+        // Paper variable `t3`. Durations of each axis.
+        let total_duration = start_phase.duration + cruise_phase.duration + end_phase.duration;
+
+        // Paper variable `delta t2`. Cruise durations of each axis.
+        let cruise_duration = cruise_phase.duration;
+
+        // Paper variable `A`, unsure of purpose.
+        let a = max_duration - (total_duration - cruise_duration);
+
+        let delta = -(a / 2.0)
+            + (a.component_mul(&a) / 4.0
+                + (max_duration - total_duration)
+                    .component_mul(&max_velocity.component_div(&self.limits.acceleration)))
+            .map(|axis| axis.sqrt());
+
+        // Adjust switching point times
+        let t1 = self.start_phase.duration - delta;
+        let t2 = max_duration - (self.end_phase.duration - delta);
+        let t3 = max_duration;
+
+        // Convert switching points back into phase durations
+        let t2 = t2 - t1;
+        let t3 = t3 - t2;
+
+        self.start_phase.duration = t1;
+        self.cruise_phase.duration = t2;
+        self.end_phase.duration = t3;
+
+        // log::info!(
+        //     "T1 {} -> {}, T2 {} -> {}, T3 {} -> {}",
+        //     self.start_phase.duration[0],
+        //     t1[0],
+        //     self.cruise_phase.duration[0],
+        //     t2[0],
+        //     self.end_phase.duration[0],
+        //     t3[0]
+        // );
+    }
+
     pub fn duration(&self) -> f32 {
-        // FIXME: Should not be max()
         self.max_duration
     }
 
