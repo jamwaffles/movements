@@ -1,7 +1,6 @@
 mod traj_1d_trapezoidal;
 mod traj_nd_trapezoidal;
 
-use console_error_panic_hook;
 use nalgebra::Vector3;
 use std::cell::RefCell;
 use std::panic;
@@ -58,7 +57,7 @@ fn draw_profiles(
                     let velocity = (height / 2) as f32 - velocity * y_scale;
                     let acceleration = (height / 2) as f32 - acceleration * y_scale;
 
-                    let x = (width / width) as f64 * i as f64;
+                    let x = i as f64;
 
                     (x, position, velocity, acceleration)
                 })
@@ -264,10 +263,10 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
 
     // End velocity handler
     {
-        let controls = controls.clone();
-        let out = out.clone();
+        let controls = controls;
+        let out = out;
         let segment = segment.clone();
-        let context = context.clone();
+        let context = context;
 
         let closure = Closure::wrap(Box::new(move |event: web_sys::InputEvent| {
             let value = event
@@ -295,8 +294,8 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
 
     // Mousemove handler
     {
-        let hover = hover.clone();
-        let segment = segment.clone();
+        let hover = hover;
+        let segment = segment;
 
         let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
             let x = event.offset_x();
