@@ -27,8 +27,11 @@ fn display_hover(
     (time, pos, vel, acc): (f32, Vector3<f32>, Vector3<f32>, Vector3<f32>),
 ) {
     container.set_inner_html(&format!(
-        "Time:         {}\nPosition:     {}\nVelocity:     {}\nAcceleration: {}",
-        time, pos[0], vel[0], acc[0]
+        "Time:         {:0.2}
+Position:     {:0.2}, {:0.2}, {:0.2}
+Velocity:     {:0.2}, {:0.2}, {:0.2}
+Acceleration: {:0.2}, {:0.2}, {:0.2}",
+        time, pos[0], pos[1], pos[2], vel[0], vel[1], vel[2], acc[0], acc[1], acc[2]
     ));
 }
 
@@ -54,16 +57,22 @@ fn draw_axis_profiles(
 ) {
     let y_scale = 20.0;
 
+    let baseline = (height / 2) + (index as u32 * 10);
+
     context.begin_path();
     context.set_stroke_style(&("#aaa".into()));
-    context.move_to(0.0, height as f64 / 2.0);
-    context.line_to(width as f64, height as f64 / 2.0);
+    context.move_to(0.0, baseline as f64);
+    context.line_to(width as f64, baseline as f64);
     context.stroke();
     context.close_path();
 
     let points = (0..width)
         .filter_map(|i| {
-            let time = segment.duration() * i as f32 / width as f32;
+            let time = segment.max_duration() * i as f32 / width as f32;
+
+            if time > segment.duration()[index as usize] {
+                return None;
+            }
 
             segment
                 .position(time)
@@ -72,9 +81,9 @@ fn draw_axis_profiles(
                     let velocity = velocity[index];
                     let acceleration = acceleration[index];
 
-                    let position = (height / 2) as f32 - position * y_scale;
-                    let velocity = (height / 2) as f32 - velocity * y_scale;
-                    let acceleration = (height / 2) as f32 - acceleration * y_scale;
+                    let position = baseline as f32 - position * y_scale;
+                    let velocity = baseline as f32 - velocity * y_scale + 3.0;
+                    let acceleration = baseline as f32 - acceleration * y_scale + 6.0;
 
                     let x = i as f64;
 
@@ -151,7 +160,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
             .expect("Required input name end_velocity missing"),
     };
 
-    let width = 1500;
+    let width = 1000;
     let height = 480;
 
     canvas.set_width(width);
@@ -173,7 +182,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         },
         Point {
             position: Vector3::repeat(10.0),
-            velocity: Vector3::new(1.0, 0.0, 2.0),
+            velocity: Vector3::new(0.0, 0.0, 0.0),
         },
     );
 
@@ -319,7 +328,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
             let x = event.offset_x();
 
-            let time = segment.borrow().duration() * x as f32 / width as f32;
+            let time = segment.borrow().max_duration() * x as f32 / width as f32;
 
             if let Some((Point { position, velocity }, acceleration)) =
                 segment.borrow().position(time)

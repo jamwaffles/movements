@@ -28,9 +28,7 @@ impl Phase {
         end_velocity: Vector3<f32>,
         acceleration: Vector3<f32>,
     ) -> Self {
-        let time = (end_velocity - start_velocity)
-            .component_div(&acceleration)
-            .abs();
+        let time = (end_velocity - start_velocity).component_div(&acceleration);
 
         let distance = second_order(time, Vector3::zeros(), start_velocity, acceleration);
         log::debug!("Phase {:?} -> {:?}", time, distance);
@@ -141,32 +139,73 @@ impl TrapezoidalLineSegment {
         let cruise_time = (end_pos - (start_pos + start_phase.distance + end_phase.distance))
             .component_div(&max_vel);
 
-        let cruise_phase = Phase {
+        let mut cruise_phase = Phase {
             duration: cruise_time,
             // Cruise: No velocity change - acceleration of zero
             distance: second_order(cruise_time, start_phase.distance, max_vel, Vector3::zeros()),
         };
 
-        // Trajectory is too short for a cruise phase, denoted by a negative cruise duration. The
-        // accel/decel ramps need to be shortened to create a wedge shaped profile.
-        let (start_phase, cruise_phase, end_phase, max_velocity) =
-            if cruise_phase.duration.min() < 0.0 {
-                let clamped_max_vel = (max_acc.component_mul(&(end_pos - start_pos))
-                    + 0.5 * start_vel.component_mul(&start_vel))
-                // In lieu of a `.component_sqrt()` method...
-                .map(|axis| axis.sqrt());
+        let mut max_vel = max_vel;
+        // Whether we need to recompute start/end phases after clamped profile
+        let mut should_clamp = false;
 
-                // Recompute start/end phases with new clamped velocity
-                let start_phase = Phase::new(start_vel, clamped_max_vel, start_accel);
-                let end_phase = Phase::new(clamped_max_vel, end_vel, end_accel);
+        cruise_phase
+            .duration
+            .iter_mut()
+            .enumerate()
+            .for_each(|(idx, axis_cruise_duration)| {
+                if *axis_cruise_duration < 0.0 {
+                    should_clamp = true;
 
-                // Wedge profile - no cruise
-                let cruise_phase = Phase::zero();
+                    let max_acc = max_acc[idx];
+                    let end_pos = end_pos[idx];
+                    let start_pos = start_pos[idx];
+                    let start_vel = start_vel[idx];
 
-                (start_phase, cruise_phase, end_phase, clamped_max_vel)
-            } else {
-                (start_phase, cruise_phase, end_phase, limits.velocity)
-            };
+                    let clamped_max_vel =
+                        (max_acc * (end_pos - start_pos) + 0.5 * start_vel.powi(2)).sqrt();
+
+                    max_vel[idx] = clamped_max_vel;
+
+                    // Wedge profile - no cruise
+                    *axis_cruise_duration = 0.0;
+
+                    //
+                } else {
+                    //
+                };
+            });
+
+        // Recompute start/end phases with new clamped velocity
+        let (start_phase, end_phase) = if should_clamp {
+            (
+                Phase::new(start_vel, max_vel, start_accel),
+                Phase::new(max_vel, end_vel, end_accel),
+            )
+        } else {
+            (start_phase, end_phase)
+        };
+
+        // // Trajectory is too short for a cruise phase, denoted by a negative cruise duration. The
+        // // accel/decel ramps need to be shortened to create a wedge shaped profile.
+        // let (start_phase, cruise_phase, end_phase, max_velocity) =
+        //     if cruise_phase.duration.min() < 0.0 {
+        //         let clamped_max_vel = (max_acc.component_mul(&(end_pos - start_pos))
+        //             + 0.5 * start_vel.component_mul(&start_vel))
+        //         // In lieu of a `.component_sqrt()` method...
+        //         .map(|axis| axis.sqrt());
+
+        //         // Recompute start/end phases with new clamped velocity
+        //         let start_phase = Phase::new(start_vel, clamped_max_vel, start_accel);
+        //         let end_phase = Phase::new(clamped_max_vel, end_vel, end_accel);
+
+        //         // Wedge profile - no cruise
+        //         let cruise_phase = Phase::zero();
+
+        //         (start_phase, cruise_phase, end_phase, clamped_max_vel)
+        //     } else {
+        //         (start_phase, cruise_phase, end_phase, limits.velocity)
+        //     };
 
         let mut self_ = Self {
             start_phase,
@@ -175,7 +214,7 @@ impl TrapezoidalLineSegment {
             start,
             end,
             limits,
-            max_velocity,
+            max_velocity: max_vel,
             start_accel,
             end_accel,
             max_duration: (start_phase.duration + cruise_phase.duration + end_phase.duration).max(),
@@ -312,8 +351,14 @@ impl TrapezoidalLineSegment {
         // );
     }
 
-    pub fn duration(&self) -> f32 {
-        self.max_duration
+    /// Get durations for all DOF
+    pub fn duration(&self) -> Vector3<f32> {
+        self.start_phase.duration + self.cruise_phase.duration + self.end_phase.duration
+    }
+
+    /// The time taken for the slowest DOF to complete its move.
+    pub fn max_duration(&self) -> f32 {
+        self.duration().max()
     }
 
     pub fn set_velocity_limit(&mut self, velocity: Vector3<f32>) {
