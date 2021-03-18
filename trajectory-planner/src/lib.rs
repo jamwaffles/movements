@@ -57,7 +57,8 @@ fn draw_axis_profiles(
 ) {
     let y_scale = 20.0;
 
-    let baseline = (height / 2) + (index as u32 * 10);
+    // let baseline = (height / 2) + (index as u32 * 10);
+    let baseline = (height / 2) + (index as u32 * 0);
 
     context.begin_path();
     context.set_stroke_style(&("#aaa".into()));
@@ -179,10 +180,12 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         Point {
             position: Vector3::repeat(0.0),
             velocity: Vector3::new(2.0, 0.0, 3.0),
+            // velocity: Vector3::zeros(),
         },
         Point {
             position: Vector3::repeat(10.0),
-            velocity: Vector3::new(0.0, 0.0, 0.0),
+            // velocity: Vector3::new(0.0, 0.0, 0.0),
+            velocity: Vector3::zeros(),
         },
     );
 

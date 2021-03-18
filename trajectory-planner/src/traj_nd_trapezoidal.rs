@@ -20,6 +20,8 @@ pub struct Phase {
     // Duration of each axis in this phase.
     pub duration: Vector3<f32>,
     pub distance: Vector3<f32>,
+    start_velocity: Vector3<f32>,
+    acceleration: Vector3<f32>,
 }
 
 impl Phase {
@@ -28,23 +30,51 @@ impl Phase {
         end_velocity: Vector3<f32>,
         acceleration: Vector3<f32>,
     ) -> Self {
-        let time = (end_velocity - start_velocity).component_div(&acceleration);
+        let duration = (end_velocity - start_velocity).component_div(&acceleration);
 
-        let distance = second_order(time, Vector3::zeros(), start_velocity, acceleration);
-        log::debug!("Phase {:?} -> {:?}", time, distance);
+        let distance = second_order(duration, Vector3::zeros(), start_velocity, acceleration);
 
         Self {
             distance,
-            duration: time,
+            duration,
+            start_velocity,
+            acceleration,
         }
     }
 
-    fn zero() -> Self {
+    fn change_duration(&mut self, duration: Vector3<f32>) {
+        let distance = second_order(
+            duration,
+            Vector3::zeros(),
+            self.start_velocity,
+            self.acceleration,
+        );
+
+        *self = Self {
+            duration,
+            distance,
+            ..*self
+        };
+    }
+
+    fn cruise(duration: Vector3<f32>, start_velocity: Vector3<f32>) -> Self {
+        let acceleration = Vector3::zeros();
+        let distance = second_order(duration, Vector3::zeros(), start_velocity, acceleration);
+
         Self {
-            duration: Vector3::zeros(),
-            distance: Vector3::zeros(),
+            duration,
+            start_velocity,
+            distance,
+            acceleration,
         }
     }
+
+    // fn zero() -> Self {
+    //     Self {
+    //         duration: Vector3::zeros(),
+    //         distance: Vector3::zeros(),
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -70,22 +100,37 @@ pub struct Limits {
 
 #[derive(Debug, Clone, Copy)]
 pub struct TrapezoidalLineSegment {
-    start_phase: Phase,
-    cruise_phase: Phase,
-    end_phase: Phase,
     limits: Limits,
     start: Point,
     end: Point,
 
-    /// Maximum reachable velocity for this segment,.
-    ///
-    /// This may be clamped lower than `limits.velocity` if velocity limit cannot be reached in
-    /// time.
-    max_velocity: Vector3<f32>,
-
-    max_duration: f32,
     start_accel: Vector3<f32>,
     end_accel: Vector3<f32>,
+    max_velocity: Vector3<f32>,
+
+    /// Time at end of accel phase.
+    t1: Vector3<f32>,
+
+    /// Time at end of cruise phase
+    t2: Vector3<f32>,
+
+    /// Aka total duration, or time at end of decel phase.
+    t3: Vector3<f32>,
+
+    /// Accel phase duration
+    delta_t1: Vector3<f32>,
+
+    /// Cruise phase duration
+    delta_t2: Vector3<f32>,
+
+    /// Decel phase duration
+    delta_t3: Vector3<f32>,
+
+    /// Distance change from accel phase
+    delta_x1: Vector3<f32>,
+
+    /// Distance change from accel phase
+    delta_x2: Vector3<f32>,
 }
 
 impl TrapezoidalLineSegment {
@@ -105,130 +150,63 @@ impl TrapezoidalLineSegment {
             velocity: end_vel,
         } = end;
 
-        // // Point at which velocity = 0 when decelerating from initial velocity (paper: Xstop)
-        // let full_stop_position = {
-        //     // FIXME: Should probably not be max() here
-        //     let time_to_stop = start_vel.component_div(&max_acc).max();
+        // (3) Calculate phase durations
+        let delta_t1 = (max_vel - start_vel).component_div(&max_acc);
+        // (4) TODO: Non-zero final velocity
+        let delta_t3 = max_vel.component_div(&max_acc);
 
-        //     log::trace!("time_to_stop {}", time_to_stop);
+        // (3)
+        let delta_x1 = second_order(delta_t1, Vector3::zeros(), start_vel, max_acc);
+        // (4)
+        let delta_x3 = second_order(delta_t3, Vector3::zeros(), max_vel, max_acc);
 
-        //     let displacement = 0.5 * start_vel * time_to_stop;
+        // (5)
+        let delta_t2 = (end_pos - (start_pos + delta_x1 + delta_x3)).component_div(&max_vel);
 
-        //     displacement
-        // };
+        let delta_x2 = second_order(delta_t2, Vector3::zeros(), max_vel, Vector3::zeros());
 
-        let mut start_accel_direction = (end_pos - start_pos).map(f32::signum);
-        let end_accel_direction = Vector3::repeat(-1.0);
+        log::debug!("{} {} {}", delta_t1, delta_t2, delta_t3);
 
-        // Swap acceleration direction if start velocity is higher than velocity limit.
-        start_accel_direction
-            .iter_mut()
-            .enumerate()
-            .for_each(|(idx, axis)| {
-                if start_vel[idx] > limits.velocity[idx] {
-                    *axis *= -1.0
-                }
-            });
+        // TODO: Clamp velocity
 
-        let start_accel = max_acc.component_mul(&start_accel_direction);
-        let end_accel = max_acc.component_mul(&end_accel_direction);
-
-        let start_phase = Phase::new(start_vel, max_vel, start_accel);
-        let end_phase = Phase::new(max_vel, end_vel, end_accel);
-
-        let cruise_time = (end_pos - (start_pos + start_phase.distance + end_phase.distance))
-            .component_div(&max_vel);
-
-        let mut cruise_phase = Phase {
-            duration: cruise_time,
-            // Cruise: No velocity change - acceleration of zero
-            distance: second_order(cruise_time, start_phase.distance, max_vel, Vector3::zeros()),
-        };
-
-        let mut max_vel = max_vel;
-        // Whether we need to recompute start/end phases after clamped profile
-        let mut should_clamp = false;
-
-        cruise_phase
-            .duration
-            .iter_mut()
-            .enumerate()
-            .for_each(|(idx, axis_cruise_duration)| {
-                if *axis_cruise_duration < 0.0 {
-                    should_clamp = true;
-
-                    let max_acc = max_acc[idx];
-                    let end_pos = end_pos[idx];
-                    let start_pos = start_pos[idx];
-                    let start_vel = start_vel[idx];
-
-                    let clamped_max_vel =
-                        (max_acc * (end_pos - start_pos) + 0.5 * start_vel.powi(2)).sqrt();
-
-                    max_vel[idx] = clamped_max_vel;
-
-                    // Wedge profile - no cruise
-                    *axis_cruise_duration = 0.0;
-
-                    //
-                } else {
-                    //
-                };
-            });
-
-        // Recompute start/end phases with new clamped velocity
-        let (start_phase, end_phase) = if should_clamp {
-            (
-                Phase::new(start_vel, max_vel, start_accel),
-                Phase::new(max_vel, end_vel, end_accel),
-            )
-        } else {
-            (start_phase, end_phase)
-        };
-
-        // // Trajectory is too short for a cruise phase, denoted by a negative cruise duration. The
-        // // accel/decel ramps need to be shortened to create a wedge shaped profile.
-        // let (start_phase, cruise_phase, end_phase, max_velocity) =
-        //     if cruise_phase.duration.min() < 0.0 {
-        //         let clamped_max_vel = (max_acc.component_mul(&(end_pos - start_pos))
-        //             + 0.5 * start_vel.component_mul(&start_vel))
-        //         // In lieu of a `.component_sqrt()` method...
-        //         .map(|axis| axis.sqrt());
-
-        //         // Recompute start/end phases with new clamped velocity
-        //         let start_phase = Phase::new(start_vel, clamped_max_vel, start_accel);
-        //         let end_phase = Phase::new(clamped_max_vel, end_vel, end_accel);
-
-        //         // Wedge profile - no cruise
-        //         let cruise_phase = Phase::zero();
-
-        //         (start_phase, cruise_phase, end_phase, clamped_max_vel)
-        //     } else {
-        //         (start_phase, cruise_phase, end_phase, limits.velocity)
-        //     };
+        let t1 = delta_t1;
+        let t2 = delta_t1 + delta_t2;
+        let t3 = delta_t1 + delta_t2 + delta_t3;
 
         let mut self_ = Self {
-            start_phase,
-            cruise_phase,
-            end_phase,
             start,
             end,
             limits,
+            delta_t1,
+            delta_t2,
+            delta_t3,
+            t1,
+            t2,
+            t3,
+
+            delta_x1,
+            delta_x2,
+
+            // TODO: Flip/clamp these properly
+            start_accel: max_acc,
+            end_accel: -max_acc,
             max_velocity: max_vel,
-            start_accel,
-            end_accel,
-            max_duration: (start_phase.duration + cruise_phase.duration + end_phase.duration).max(),
         };
 
-        // self_.sync_multi();
+        self_.sync_multi();
 
         self_
+    }
+
+    // Synchronise multiple axes.
+    fn sync_multi(&mut self) {
+        let Self { .. } = *self;
     }
 
     /// Get position, velocity and acceleration of a single axis at `time`.
     fn pos(&self, time: f32, idx: usize) -> Option<(f32, f32, f32)> {
         // Acceleration phase
-        if 0.0 <= time && time < self.start_phase.duration[idx] {
+        if 0.0 <= time && time < self.delta_t1[idx] {
             let position = second_order_single_axis(
                 time,
                 self.start.position[idx],
@@ -242,11 +220,11 @@ impl TrapezoidalLineSegment {
         }
 
         // Subtract start duration if we're in cruise/end phase
-        let time = time - self.start_phase.duration[idx];
+        let time = time - self.delta_t1[idx];
 
         // Cruise phase
-        if time < self.cruise_phase.duration[idx] {
-            let initial_pos = self.start.position[idx] + self.start_phase.distance[idx];
+        if time < self.delta_t2[idx] {
+            let initial_pos = self.start.position[idx] + self.delta_x1[idx];
 
             let position = second_order_single_axis(time, initial_pos, self.max_velocity[idx], 0.0);
 
@@ -254,17 +232,12 @@ impl TrapezoidalLineSegment {
         }
 
         // Subtract cruise duration (we already subtracted start duration above)
-        let time = time - self.cruise_phase.duration[idx];
+        let time = time - self.delta_t2[idx];
 
         // Decel phase
-        if time <= self.end_phase.duration[idx] {
+        if time <= self.delta_t3[idx] {
             // Position at end of cruise phase
-            let initial_pos = second_order_single_axis(
-                self.cruise_phase.duration[idx],
-                self.start.position[idx] + self.start_phase.distance[idx],
-                self.max_velocity[idx],
-                0.0,
-            );
+            let initial_pos = self.delta_x1[idx] + self.delta_x2[idx];
 
             let position = second_order_single_axis(
                 time,
@@ -298,62 +271,9 @@ impl TrapezoidalLineSegment {
         Some((point, accel))
     }
 
-    // Synchronise multiple axes.
-    fn sync_multi(&mut self) {
-        let Self {
-            start_phase,
-            cruise_phase,
-            end_phase,
-            max_duration,
-            max_velocity,
-            ..
-        } = *self;
-
-        // Paper variable `T`, longest duration among all axes.
-        let max_duration = Vector3::repeat(max_duration);
-
-        // Paper variable `t3`. Durations of each axis.
-        let total_duration = start_phase.duration + cruise_phase.duration + end_phase.duration;
-
-        // Paper variable `delta t2`. Cruise durations of each axis.
-        let cruise_duration = cruise_phase.duration;
-
-        // Paper variable `A`, unsure of purpose.
-        let a = max_duration - (total_duration - cruise_duration);
-
-        let delta = -(a / 2.0)
-            + (a.component_mul(&a) / 4.0
-                + (max_duration - total_duration)
-                    .component_mul(&max_velocity.component_div(&self.limits.acceleration)))
-            .map(|axis| axis.sqrt());
-
-        // Adjust switching point times
-        let t1 = self.start_phase.duration - delta;
-        let t2 = max_duration - (self.end_phase.duration - delta);
-        let t3 = max_duration;
-
-        // Convert switching points back into phase durations
-        let t2 = t2 - t1;
-        let t3 = t3 - t2;
-
-        self.start_phase.duration = t1;
-        self.cruise_phase.duration = t2;
-        self.end_phase.duration = t3;
-
-        // log::info!(
-        //     "T1 {} -> {}, T2 {} -> {}, T3 {} -> {}",
-        //     self.start_phase.duration[0],
-        //     t1[0],
-        //     self.cruise_phase.duration[0],
-        //     t2[0],
-        //     self.end_phase.duration[0],
-        //     t3[0]
-        // );
-    }
-
     /// Get durations for all DOF
     pub fn duration(&self) -> Vector3<f32> {
-        self.start_phase.duration + self.cruise_phase.duration + self.end_phase.duration
+        self.delta_t1 + self.delta_t2 + self.delta_t3
     }
 
     /// The time taken for the slowest DOF to complete its move.
