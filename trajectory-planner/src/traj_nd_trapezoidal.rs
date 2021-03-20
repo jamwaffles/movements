@@ -158,14 +158,12 @@ impl TrapezoidalLineSegment {
         // (3)
         let delta_x1 = second_order(delta_t1, Vector3::zeros(), start_vel, max_acc);
         // (4)
-        let delta_x3 = second_order(delta_t3, Vector3::zeros(), max_vel, max_acc);
+        let delta_x3 = second_order(delta_t3, Vector3::zeros(), max_vel, -max_acc);
 
         // (5)
         let delta_t2 = (end_pos - (start_pos + delta_x1 + delta_x3)).component_div(&max_vel);
 
         let delta_x2 = second_order(delta_t2, Vector3::zeros(), max_vel, Vector3::zeros());
-
-        log::debug!("{} {} {}", delta_t1, delta_t2, delta_t3);
 
         // TODO: Clamp velocity
 
@@ -200,60 +198,182 @@ impl TrapezoidalLineSegment {
 
     // Synchronise multiple axes.
     fn sync_multi(&mut self) {
-        let Self { .. } = *self;
+        let Self {
+            t1,
+            t3,
+            delta_t2,
+            delta_t3,
+            limits: Limits {
+                acceleration: max_acc,
+                ..
+            },
+            max_velocity: max_vel,
+            start: Point {
+                velocity: start_vel,
+                ..
+            },
+            ..
+        } = *self;
+
+        let max_duration = Vector3::repeat(t3.max());
+
+        let a = max_duration - (t3 - delta_t2);
+
+        let a_sq = a.component_mul(&a);
+
+        let delta = -(a / 2.0)
+            + ((a_sq / 4.0)
+                + (max_duration - t3).component_mul(&max_vel.abs().component_div(&max_acc)))
+            .map(|axis| axis.sqrt());
+
+        let t1 = t1 - delta;
+        let t2 = max_duration - (delta_t3 - delta);
+        let t3 = max_duration;
+
+        let delta_t1 = t1;
+        let delta_t2 = t2 - t1;
+        let delta_t3 = t3 - t2 - t1;
+
+        let delta_x1 = second_order(delta_t1, Vector3::zeros(), start_vel, max_acc);
+        let delta_x2 = {
+            // Velocity at end of accel phase
+            let t1_vel = start_vel + self.start_accel.component_mul(&delta_t1);
+
+            second_order(delta_t2, Vector3::zeros(), t1_vel, Vector3::zeros())
+        };
+        // let delta_x3 = second_order(delta_t3, Vector3::zeros(), max_vel, max_acc);
+
+        self.t1 = t1;
+        self.t2 = t2;
+        self.t3 = t3;
+        self.delta_t1 = delta_t1;
+        self.delta_t2 = delta_t2;
+        self.delta_t3 = delta_t3;
+        self.delta_x1 = delta_x1;
+        self.delta_x2 = delta_x2;
+        // self.delta_x3 = delta_x3;
     }
 
     /// Get position, velocity and acceleration of a single axis at `time`.
     fn pos(&self, time: f32, idx: usize) -> Option<(f32, f32, f32)> {
-        // Acceleration phase
-        if 0.0 <= time && time < self.delta_t1[idx] {
-            let position = second_order_single_axis(
+        // Accel
+        if 0.0 <= time && time < self.t1[idx] {
+            let pos = second_order_single_axis(
                 time,
                 self.start.position[idx],
                 self.start.velocity[idx],
                 self.start_accel[idx],
             );
 
-            let velocity = self.start.velocity[idx] + self.start_accel[idx] * time;
+            let vel = self.start.velocity[idx] + self.start_accel[idx] * time;
 
-            return Some((position, velocity, self.start_accel[idx]));
+            let acc = self.start_accel[idx];
+
+            return Some((pos, vel, acc));
         }
 
-        // Subtract start duration if we're in cruise/end phase
-        let time = time - self.delta_t1[idx];
+        // Cruise
+        if time < self.t2[idx] {
+            let time = time - self.t1[idx];
 
-        // Cruise phase
-        if time < self.delta_t2[idx] {
+            // Position at end of acceleration phase
+            // let initial_pos = second_order_single_axis(
+            //     self.t1[idx],
+            //     self.start.position[idx],
+            //     self.start.velocity[idx],
+            //     self.start_accel[idx],
+            // );
             let initial_pos = self.start.position[idx] + self.delta_x1[idx];
 
-            let position = second_order_single_axis(time, initial_pos, self.max_velocity[idx], 0.0);
+            // Velocity at end of accel phase
+            let cruise_vel = self.start.velocity[idx] + self.start_accel[idx] * self.delta_t1[idx];
 
-            return Some((position, self.max_velocity[idx], 0.0));
+            let pos = second_order_single_axis(time, initial_pos, cruise_vel, 0.0);
+
+            let vel = cruise_vel;
+
+            let acc = 0.0;
+
+            return Some((pos, vel, acc));
         }
 
-        // Subtract cruise duration (we already subtracted start duration above)
-        let time = time - self.delta_t2[idx];
+        // Decel
+        if time <= self.t3[idx] {
+            let time = time - self.t2[idx];
 
-        // Decel phase
-        if time <= self.delta_t3[idx] {
-            // Position at end of cruise phase
-            let initial_pos = self.delta_x1[idx] + self.delta_x2[idx];
+            // Velocity at end of accel phase. Cruise phase velocity remains at this value so we can
+            // use it in the calculations.
+            let cruise_vel = self.start.velocity[idx] + self.start_accel[idx] * self.delta_t1[idx];
 
-            let position = second_order_single_axis(
-                time,
-                initial_pos,
-                self.max_velocity[idx],
-                self.end_accel[idx],
-            );
+            // End of cruise phase
+            let initial_pos = self.start.position[idx] + self.delta_x1[idx] + self.delta_x2[idx];
+            // let initial_pos = second_order_single_axis(
+            //     self.t2[idx],
+            //     self.start.position[idx] + self.delta_x1[idx],
+            //     cruise_vel,
+            //     0.0,
+            // );
 
-            // Max velocity minus a given value as we're decelerating
-            let velocity = self.max_velocity[idx] + self.end_accel[idx] * time;
+            let pos = second_order_single_axis(time, initial_pos, cruise_vel, self.end_accel[idx]);
 
-            return Some((position, velocity, self.end_accel[idx]));
+            let vel = cruise_vel + self.end_accel[idx] * time;
+
+            let acc = self.end_accel[idx];
+
+            return Some((pos, vel, acc));
         }
 
-        // Past end of segment for this axis
         None
+
+        // // Acceleration phase
+        // if 0.0 <= time && time < self.delta_t1[idx] {
+        //     let position = second_order_single_axis(
+        //         time,
+        //         self.start.position[idx],
+        //         self.start.velocity[idx],
+        //         self.start_accel[idx],
+        //     );
+
+        //     let velocity = self.start.velocity[idx] + self.start_accel[idx] * time;
+
+        //     return Some((position, velocity, self.start_accel[idx]));
+        // }
+
+        // // Subtract start duration if we're in cruise/end phase
+        // let time = time - self.delta_t1[idx];
+
+        // // Cruise phase
+        // if time < self.delta_t2[idx] {
+        //     let initial_pos = self.start.position[idx] + self.delta_x1[idx];
+
+        //     let position = second_order_single_axis(time, initial_pos, self.max_velocity[idx], 0.0);
+
+        //     return Some((position, self.max_velocity[idx], 0.0));
+        // }
+
+        // // Subtract cruise duration (we already subtracted start duration above)
+        // let time = time - self.delta_t2[idx];
+
+        // // Decel phase
+        // if time <= self.delta_t3[idx] {
+        //     // Position at end of cruise phase
+        //     let initial_pos = self.delta_x1[idx] + self.delta_x2[idx];
+
+        //     let position = second_order_single_axis(
+        //         time,
+        //         initial_pos,
+        //         self.max_velocity[idx],
+        //         self.end_accel[idx],
+        //     );
+
+        //     // Max velocity minus a given value as we're decelerating
+        //     let velocity = self.max_velocity[idx] + self.end_accel[idx] * time;
+
+        //     return Some((position, velocity, self.end_accel[idx]));
+        // }
+
+        // // Past end of segment for this axis
+        // None
     }
 
     pub fn position(&self, time: f32) -> Option<(Point, Vector3<f32>)> {
@@ -273,7 +393,8 @@ impl TrapezoidalLineSegment {
 
     /// Get durations for all DOF
     pub fn duration(&self) -> Vector3<f32> {
-        self.delta_t1 + self.delta_t2 + self.delta_t3
+        // self.delta_t1 + self.delta_t2 + self.delta_t3
+        self.t3
     }
 
     /// The time taken for the slowest DOF to complete its move.
