@@ -165,8 +165,6 @@ impl TrapezoidalLineSegment {
 
         let delta_x2 = second_order(delta_t2, Vector3::zeros(), max_vel, Vector3::zeros());
 
-        // TODO: Clamp velocity
-
         let t1 = delta_t1;
         let t2 = delta_t1 + delta_t2;
         let t3 = delta_t1 + delta_t2 + delta_t3;
@@ -191,12 +189,83 @@ impl TrapezoidalLineSegment {
             max_velocity: max_vel,
         };
 
+        self_.clamp();
+
         self_.sync_multi();
 
         self_
     }
 
-    // Synchronise multiple axes.
+    /// Reduce profiles of axes that are too short to contain a cruise phase.
+    ///
+    /// In this case, a wedge shaped profile must be created instead, with a lower maximum velocity.
+    fn clamp(&mut self) {
+        let Self {
+            limits:
+                Limits {
+                    velocity: max_vel,
+                    acceleration: max_acc,
+                },
+            start:
+                Point {
+                    position: start_pos,
+                    velocity: start_vel,
+                },
+            end:
+                Point {
+                    position: end_pos,
+                    velocity: end_vel,
+                },
+            max_velocity,
+            ..
+        } = self;
+
+        // Whether we need to recompute start/end phases after clamped profile
+        let mut should_clamp = false;
+
+        self.delta_t2
+            .iter_mut()
+            .enumerate()
+            .for_each(|(idx, axis_cruise_duration)| {
+                if *axis_cruise_duration < 0.0 {
+                    should_clamp = true;
+
+                    let max_acc = max_acc[idx];
+                    let end_pos = end_pos[idx];
+                    let start_pos = start_pos[idx];
+                    let start_vel = start_vel[idx];
+
+                    // New peak velocity |v|
+                    let clamped_max_vel =
+                        (max_acc * (end_pos - start_pos) + 0.5 * start_vel.powi(2)).sqrt();
+
+                    max_velocity[idx] = clamped_max_vel;
+
+                    // Wedge profile - no cruise
+                    *axis_cruise_duration = 0.0;
+                }
+            });
+
+        log::debug!("Should clamp {:?}", should_clamp);
+
+        // Recompute start/end phases with new clamped velocity
+        if should_clamp {
+            // (3) Calculate phase durations
+            self.delta_t1 = (*max_vel - *start_vel).component_div(&max_acc);
+            // (4)
+            self.delta_t3 = (*max_vel - *end_vel).component_div(&max_acc);
+
+            self.t1 = self.delta_t1;
+            // No cruise duration
+            self.t2 = self.delta_t1;
+            self.t3 = self.delta_t1 + self.delta_t3;
+
+            // (3)
+            self.delta_x1 = second_order(self.delta_t1, Vector3::zeros(), *start_vel, *max_acc);
+        }
+    }
+
+    /// Synchronise multiple axes to end at the same time.
     fn sync_multi(&mut self) {
         let Self {
             t1,
