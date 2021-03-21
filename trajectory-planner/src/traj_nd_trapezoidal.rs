@@ -152,8 +152,8 @@ impl TrapezoidalLineSegment {
 
         // (3) Calculate phase durations
         let delta_t1 = (max_vel - start_vel).component_div(&max_acc);
-        // (4) TODO: Non-zero final velocity
-        let delta_t3 = max_vel.component_div(&max_acc);
+        // (4)
+        let delta_t3 = (max_vel - end_vel).component_div(&max_acc);
 
         // (3)
         let delta_x1 = second_order(delta_t1, Vector3::zeros(), start_vel, max_acc);

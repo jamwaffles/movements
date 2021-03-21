@@ -184,8 +184,8 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         },
         Point {
             position: Vector3::repeat(10.0),
-            // velocity: Vector3::new(0.0, 0.0, 0.0),
-            velocity: Vector3::zeros(),
+            velocity: Vector3::new(0.0, 0.0, 1.0),
+            // velocity: Vector3::zeros(),
         },
     );
 
