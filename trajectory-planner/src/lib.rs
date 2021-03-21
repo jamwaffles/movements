@@ -55,7 +55,7 @@ fn draw_axis_profiles(
     height: u32,
     index: usize,
 ) {
-    let y_scale = 20.0;
+    let y_scale = 15.0;
 
     // let baseline = (height / 2) + (index as u32 * 10);
     let baseline = (height / 2) + (index as u32 * 0);
@@ -162,7 +162,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
     };
 
     let width = 1000;
-    let height = 480;
+    let height = 800;
 
     canvas.set_width(width);
     canvas.set_height(height);
