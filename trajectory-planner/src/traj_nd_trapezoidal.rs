@@ -136,8 +136,8 @@ pub struct TrapezoidalLineSegment {
 impl TrapezoidalLineSegment {
     pub fn new(limits: Limits, start: Point, end: Point) -> Self {
         let Limits {
-            acceleration: max_acc,
-            velocity: max_vel,
+            acceleration: accel_limit,
+            velocity: vel_limit,
         } = limits;
 
         let Point {
@@ -150,8 +150,8 @@ impl TrapezoidalLineSegment {
             velocity: end_vel,
         } = end;
 
-        let start_accel = max_acc;
-        let end_accel = -max_acc;
+        let start_accel = accel_limit;
+        let end_accel = -accel_limit;
 
         let (start_accel, end_accel) = {
             let mut start_accel_direction = (end_pos - start_pos).map(f32::signum);
@@ -162,31 +162,31 @@ impl TrapezoidalLineSegment {
                 .iter_mut()
                 .enumerate()
                 .for_each(|(idx, axis)| {
-                    if start_vel[idx] > max_vel[idx] {
+                    if start_vel[idx] > vel_limit[idx] {
                         *axis *= -1.0
                     }
                 });
 
-            let start_accel = max_acc.component_mul(&start_accel_direction);
-            let end_accel = max_acc.component_mul(&end_accel_direction);
+            let start_accel = accel_limit.component_mul(&start_accel_direction);
+            let end_accel = accel_limit.component_mul(&end_accel_direction);
 
             (start_accel, end_accel)
         };
 
         // (3) Calculate phase durations
-        let delta_t1 = (max_vel - start_vel).component_div(&start_accel);
+        let delta_t1 = (vel_limit - start_vel).component_div(&start_accel);
         // (4)
-        let delta_t3 = (end_vel - max_vel).component_div(&end_accel);
+        let delta_t3 = (end_vel - vel_limit).component_div(&end_accel);
 
         // (3)
         let delta_x1 = second_order(delta_t1, Vector3::zeros(), start_vel, start_accel);
         // (4)
-        let delta_x3 = second_order(delta_t3, Vector3::zeros(), max_vel, end_accel);
+        let delta_x3 = second_order(delta_t3, Vector3::zeros(), vel_limit, end_accel);
 
         // (5)
-        let delta_t2 = (end_pos - (start_pos + delta_x1 + delta_x3)).component_div(&max_vel);
+        let delta_t2 = (end_pos - (start_pos + delta_x1 + delta_x3)).component_div(&vel_limit);
 
-        let delta_x2 = second_order(delta_t2, Vector3::zeros(), max_vel, Vector3::zeros());
+        let delta_x2 = second_order(delta_t2, Vector3::zeros(), vel_limit, Vector3::zeros());
 
         let t1 = delta_t1;
         let t2 = delta_t1 + delta_t2;
@@ -206,15 +206,14 @@ impl TrapezoidalLineSegment {
             delta_x1,
             delta_x2,
 
-            // TODO: Flip/clamp these properly
             start_accel,
             end_accel,
-            max_velocity: max_vel,
+            max_velocity: vel_limit,
         };
 
         self_.clamp();
 
-        // self_.sync_multi();
+        self_.sync_multi();
 
         self_
     }
@@ -226,8 +225,8 @@ impl TrapezoidalLineSegment {
         let Self {
             limits:
                 Limits {
-                    velocity: max_vel,
-                    acceleration: max_acc,
+                    acceleration: accel_limit,
+                    ..
                 },
             start:
                 Point {
@@ -253,7 +252,7 @@ impl TrapezoidalLineSegment {
             // wedge instead.
             if *axis_cruise_duration < 0.0 {
                 // Convert everything into the current single axis
-                let max_acc = max_acc[idx];
+                let accel_limit = accel_limit[idx];
                 let end_pos = end_pos[idx];
                 let end_vel = end_vel[idx];
                 let end_accel = end_accel[idx];
@@ -263,7 +262,7 @@ impl TrapezoidalLineSegment {
 
                 // New peak velocity |v|
                 let clamped_max_vel =
-                    (max_acc * (end_pos - start_pos) + 0.5 * start_vel.powi(2)).sqrt();
+                    (accel_limit * (end_pos - start_pos) + 0.5 * start_vel.powi(2)).sqrt();
 
                 // Modify max velocity allowed for this axis as peak of wedge velocity profile
                 max_velocity[idx] = clamped_max_vel;
@@ -307,18 +306,24 @@ impl TrapezoidalLineSegment {
     fn sync_multi(&mut self) {
         let Self {
             t1,
+            t2,
             t3,
             delta_t2,
             delta_t3,
-            limits: Limits {
-                acceleration: max_acc,
-                ..
+            limits:
+                Limits {
+                    acceleration: accel_limit,
+                    velocity: vel_limit,
+                },
+            start:
+                Point {
+                    velocity: start_vel,
+                    position: start_pos,
+                },
+            end: Point {
+                position: end_pos, ..
             },
-            max_velocity: max_vel,
-            start: Point {
-                velocity: start_vel,
-                ..
-            },
+            start_accel,
             ..
         } = *self;
 
@@ -330,35 +335,146 @@ impl TrapezoidalLineSegment {
 
         let delta = -(a / 2.0)
             + ((a_sq / 4.0)
-                + (max_duration - t3).component_mul(&max_vel.abs().component_div(&max_acc)))
+                + (max_duration - t3)
+                    .component_mul(&self.max_velocity.abs().component_div(&accel_limit)))
             .map(|axis| axis.sqrt());
 
-        let t1 = t1 - delta;
-        let t2 = max_duration - (delta_t3 - delta);
-        let t3 = max_duration;
+        // log::debug!("Delta {:?}", delta);
 
-        let delta_t1 = t1;
-        let delta_t2 = t2 - t1;
-        let delta_t3 = t3 - t2 - t1;
+        let mut new_t1 = t1;
+        let mut new_t2 = t2;
+        let mut new_t3 = t3;
 
-        let delta_x1 = second_order(delta_t1, Vector3::zeros(), start_vel, max_acc);
-        let delta_x2 = {
-            // Velocity at end of accel phase
-            let t1_vel = start_vel + self.start_accel.component_mul(&delta_t1);
+        t1.clone().iter().enumerate().for_each(|(idx, axis)| {
+            // Decelerate to lower cruise phase to extend this axis' duration to fit t3
+            if *axis < delta[idx] {
+                // log::debug!("Decel {:?} {:?} -> {:?}", idx, axis, delta[idx]);
 
-            second_order(delta_t2, Vector3::zeros(), t1_vel, Vector3::zeros())
+                // TODO: Deal with non-zero final velocities
+
+                let t_stop = start_vel[idx].abs() / accel_limit[idx];
+
+                let x_stop = 0.5 * start_vel[idx] * t_stop;
+
+                // TODO: Handle non-zero initial positions?
+
+                let v = (end_pos[idx] - x_stop) / (max_duration[idx] - t_stop);
+
+                // log::debug!("{} t_stop {:?}, x_stop {:?}", idx, t_stop, x_stop);
+
+                new_t1[idx] = (v - start_vel[idx]).abs() / accel_limit[idx];
+                new_t2[idx] = max_duration[idx] - t_stop - new_t1[idx];
+
+                // This is now a deceleration phase
+                self.start_accel[idx] = -accel_limit[idx];
+            }
+            // Compute new acceleration times to extend cruise phase
+            else {
+                new_t1[idx] = t1[idx] - delta[idx];
+                new_t2[idx] = max_duration[idx] - (delta_t3[idx] - delta[idx]);
+                // log::debug!("Accel {:?} {:?} -> {:?}", idx, axis, new_t1[idx]);
+            }
+
+            new_t3[idx] = max_duration[idx];
+        });
+
+        let old = self.max_velocity;
+
+        // Compute new velocity limit based on new acceleration phase
+        self.max_velocity = {
+            // v = u + at
+            start_vel + self.start_accel.component_mul(&new_t1)
         };
-        // let delta_x3 = second_order(delta_t3, Vector3::zeros(), max_vel, max_acc);
 
-        self.t1 = t1;
-        self.t2 = t2;
-        self.t3 = t3;
-        self.delta_t1 = delta_t1;
-        self.delta_t2 = delta_t2;
-        self.delta_t3 = delta_t3;
-        self.delta_x1 = delta_x1;
-        self.delta_x2 = delta_x2;
-        // self.delta_x3 = delta_x3;
+        log::debug!("Max velocity {:?} -> {:?}", old, self.max_velocity);
+
+        let new_delta_t2 = new_t2 - new_t1;
+        let new_delta_t3 = new_t3 - new_t2;
+
+        // log::debug!("t1 {:?} -> {:?}", self.t1, new_t1);
+        log::debug!("t2 {:?} -> {:?}", self.t2, new_t2);
+        log::debug!("delta_t2 {:?} -> {:?}", self.delta_t2, new_delta_t2);
+        // log::debug!("delta_t3 {:?} -> {:?}", self.delta_t3, new_delta_t3);
+
+        let new_delta_x1 = second_order(new_t1, Vector3::zeros(), start_vel, start_accel);
+        let new_delta_x2 = second_order(
+            new_delta_t2,
+            Vector3::zeros(),
+            self.max_velocity,
+            Vector3::zeros(),
+        );
+
+        log::debug!("delta_x1 {:?} -> {:?}", self.delta_x1, new_delta_x1);
+        log::debug!("delta_x2 {:?} -> {:?}", self.delta_x2, new_delta_x2);
+
+        self.t1 = new_t1;
+        self.t2 = new_t2;
+        self.t3 = new_t3;
+        self.delta_t1 = new_t1;
+        self.delta_t2 = new_delta_t2;
+        self.delta_t3 = new_delta_t3;
+        self.delta_x1 = new_delta_x1;
+        self.delta_x2 = new_delta_x2;
+
+        // log::debug!("t1 {:?} -> new t1 {:?}", t1, new_t1);
+        // log::debug!("t2 {:?} -> new t2 {:?}", t2, new_t2);
+
+        // let mut t1 = t1 - delta;
+        // let mut t2 = max_duration - (delta_t3 - delta);
+        // let t3 = max_duration;
+
+        // log::debug!("{:?} {:?}", t1, delta);
+
+        // // Turn accel into decel if necessary
+        // t1.iter_mut().enumerate().for_each(|(idx, axis)| {
+        //     if *axis < delta[idx] {
+        //         let t_stop = max_velocity[idx].abs() / accel_limit[idx];
+
+        //         // TODO: Handle non-zero final velocity
+
+        //         // Position at full stop
+        //         let x_stop = second_order_single_axis(
+        //             t_stop,
+        //             start_pos[idx],
+        //             start_vel[idx],
+        //             -accel_limit[idx],
+        //         );
+
+        //         let x_goal = end_pos[idx];
+
+        //         let reduced_velocity = (x_goal - x_stop) / (max_duration[idx] - t_stop);
+
+        //         // We're decelerating now, so make start accel negative
+        //         self.start_accel[idx] = -accel_limit[idx];
+
+        //         *axis = (reduced_velocity - start_vel[idx]).abs() / accel_limit[idx];
+
+        //         t2[idx] = max_duration[idx] - t_stop - *axis;
+        //     } else {
+        //         *axis -= delta[idx]
+        //     }
+        // });
+
+        // let delta_t1 = t1;
+        // let delta_t2 = t2 - t1;
+        // let delta_t3 = t3 - t2 - t1;
+
+        // let delta_x1 = second_order(delta_t1, Vector3::zeros(), start_vel, start_accel);
+        // let delta_x2 = {
+        //     // Velocity at end of accel phase
+        //     let t1_vel = start_vel + self.start_accel.component_mul(&delta_t1);
+
+        //     second_order(delta_t2, Vector3::zeros(), t1_vel, Vector3::zeros())
+        // };
+
+        // self.t1 = t1;
+        // self.t2 = t2;
+        // self.t3 = t3;
+        // self.delta_t1 = delta_t1;
+        // self.delta_t2 = delta_t2;
+        // self.delta_t3 = delta_t3;
+        // self.delta_x1 = delta_x1;
+        // self.delta_x2 = delta_x2;
     }
 
     /// Get position, velocity and acceleration of a single axis at `time`.
@@ -386,8 +502,12 @@ impl TrapezoidalLineSegment {
             // Position at end of acceleration phase
             let initial_pos = self.start.position[idx] + self.delta_x1[idx];
 
+            // assert_eq!(ass, initial_pos);
+
             // Velocity at end of accel phase
-            let cruise_vel = self.start.velocity[idx] + self.start_accel[idx] * self.delta_t1[idx];
+            // FIXME: Use self.max_velocity when that's recalculated properly
+            // let cruise_vel = self.start.velocity[idx] + self.start_accel[idx] * self.delta_t1[idx];
+            let cruise_vel = self.max_velocity[idx];
 
             let pos = second_order_single_axis(time, initial_pos, cruise_vel, 0.0);
 
@@ -404,7 +524,9 @@ impl TrapezoidalLineSegment {
 
             // Velocity at end of accel phase. Cruise phase velocity remains at this value so we can
             // use it in the calculations.
-            let cruise_vel = self.start.velocity[idx] + self.start_accel[idx] * self.delta_t1[idx];
+            // FIXME: Use self.max_velocity when that's recalculated properly
+            // let cruise_vel = self.start.velocity[idx] + self.start_accel[idx] * self.delta_t1[idx];
+            let cruise_vel = self.max_velocity[idx];
 
             // End of cruise phase
             let initial_pos = self.start.position[idx] + self.delta_x1[idx] + self.delta_x2[idx];

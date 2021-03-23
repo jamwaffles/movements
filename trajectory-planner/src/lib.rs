@@ -43,9 +43,11 @@ fn draw_profiles(
 ) {
     context.clear_rect(0.0, 0.0, width as f64, height as f64);
 
-    for i in 0..(Vector3::<f32>::zeros().len()) {
-        draw_axis_profiles(context, segment, width, height, i)
-    }
+    // for i in 0..(Vector3::<f32>::zeros().len()) {
+    //     draw_axis_profiles(context, segment, width, height, i)
+    // }
+
+    draw_axis_profiles(context, segment, width, height, 2);
 }
 
 fn draw_axis_profiles(
@@ -59,6 +61,8 @@ fn draw_axis_profiles(
 
     // let baseline = (height / 2) + (index as u32 * 10);
     let baseline = (height / 2) + (index as u32 * 0);
+
+    // context.set_line_width((index + 1) as f64);
 
     context.begin_path();
     context.set_stroke_style(&("#aaa".into()));
@@ -179,13 +183,14 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         },
         Point {
             position: Vector3::repeat(0.0),
+            // position: Vector3::new(2.0, 0.0, 3.0),
             velocity: Vector3::new(2.0, 0.0, 3.0),
             // velocity: Vector3::zeros(),
         },
         Point {
             position: Vector3::repeat(10.0),
-            velocity: Vector3::new(0.0, 0.0, 1.0),
-            // velocity: Vector3::zeros(),
+            // velocity: Vector3::new(0.0, 0.0, 1.0),
+            velocity: Vector3::zeros(),
         },
     );
 
