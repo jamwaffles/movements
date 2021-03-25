@@ -322,9 +322,11 @@ impl TrapezoidalLineSegment {
                     velocity: start_vel,
                     position: start_pos,
                 },
-            end: Point {
-                position: end_pos, ..
-            },
+            end:
+                Point {
+                    position: end_pos,
+                    velocity: end_vel,
+                },
             ..
         } = *self;
 
@@ -339,7 +341,7 @@ impl TrapezoidalLineSegment {
         let delta = -(a / 2.0)
             + ((a_sq / 4.0)
                 + (max_duration - t3)
-                    .component_mul(&self.max_velocity.component_div(&accel_limit)))
+                    .component_mul(&(self.max_velocity - end_vel).component_div(&accel_limit)))
             .map(|axis| axis.sqrt());
 
         // log::debug!("Delta {:?}", delta);
@@ -356,9 +358,10 @@ impl TrapezoidalLineSegment {
             if *axis * self.start_accel[idx].signum() < delta[idx] {
                 // TODO: Deal with non-zero final velocities
 
+                // let t_stop = (start_vel[idx] - end_vel[idx]).abs() / accel_limit[idx];
                 let t_stop = start_vel[idx].abs() / accel_limit[idx];
 
-                // log::debug!("Decel");
+                log::debug!("Decel {}", idx);
 
                 // log::debug!(
                 //     "Decel {:?} {:?} -> {:?}, tstop {:?}",
@@ -382,7 +385,7 @@ impl TrapezoidalLineSegment {
             }
             // Compute new acceleration times to extend cruise phase
             else {
-                // log::debug!("Accel {}", idx);
+                log::debug!("Accel {}", idx);
 
                 new_t1[idx] = t1[idx] - delta[idx];
                 new_t2[idx] = max_duration[idx] - (delta_t3[idx] - delta[idx]);
