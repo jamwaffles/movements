@@ -43,11 +43,11 @@ fn draw_profiles(
 ) {
     context.clear_rect(0.0, 0.0, width as f64, height as f64);
 
-    // for i in 0..(Vector3::<f32>::zeros().len()) {
-    //     draw_axis_profiles(context, segment, width, height, i)
-    // }
+    for i in 0..(Vector3::<f32>::zeros().len()) {
+        draw_axis_profiles(context, segment, width, height, i)
+    }
 
-    draw_axis_profiles(context, segment, width, height, 2);
+    // draw_axis_profiles(context, segment, width, height, 2);
 }
 
 fn draw_axis_profiles(
@@ -184,7 +184,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         Point {
             position: Vector3::repeat(0.0),
             // position: Vector3::new(2.0, 0.0, 3.0),
-            velocity: Vector3::new(2.0, 0.0, 3.0),
+            velocity: Vector3::new(0.0, 0.0, 3.0),
             // velocity: Vector3::zeros(),
         },
         Point {
