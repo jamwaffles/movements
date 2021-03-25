@@ -325,11 +325,10 @@ impl TrapezoidalLineSegment {
             end: Point {
                 position: end_pos, ..
             },
-            start_accel,
             ..
         } = *self;
 
-        log::debug!("Max {:?}", t3);
+        // log::debug!("Max {:?}", t3);
 
         let max_duration = Vector3::repeat(t3.max());
 
@@ -343,21 +342,23 @@ impl TrapezoidalLineSegment {
                     .component_mul(&self.max_velocity.component_div(&accel_limit)))
             .map(|axis| axis.sqrt());
 
-        log::debug!("Delta {:?}", delta);
+        // log::debug!("Delta {:?}", delta);
 
         let mut new_t1 = t1;
         let mut new_t2 = t2;
         let mut new_t3 = t3;
 
+        // log::debug!("Old start_accel {:?}", self.start_accel);
+
         delta_t1.clone().iter().enumerate().for_each(|(idx, axis)| {
             // log::debug!("BUMS {:?} : {:?} < {:?}", idx, axis, delta[idx]);
             // Decelerate to lower cruise phase to extend this axis' duration to fit t3
-            if *axis * start_accel[idx].signum() < delta[idx] {
+            if *axis * self.start_accel[idx].signum() < delta[idx] {
                 // TODO: Deal with non-zero final velocities
 
                 let t_stop = start_vel[idx].abs() / accel_limit[idx];
 
-                log::debug!("Decel");
+                // log::debug!("Decel");
 
                 // log::debug!(
                 //     "Decel {:?} {:?} -> {:?}, tstop {:?}",
@@ -367,9 +368,7 @@ impl TrapezoidalLineSegment {
                 //     t_stop
                 // );
 
-                let x_stop = 0.5 * start_vel[idx] * t_stop;
-
-                // TODO: Handle non-zero initial positions?
+                let x_stop = start_pos[idx] + 0.5 * start_vel[idx] * t_stop;
 
                 let v = (end_pos[idx] - x_stop) / (max_duration[idx] - t_stop);
 
@@ -383,7 +382,7 @@ impl TrapezoidalLineSegment {
             }
             // Compute new acceleration times to extend cruise phase
             else {
-                log::debug!("Accel {}", idx);
+                // log::debug!("Accel {}", idx);
 
                 new_t1[idx] = t1[idx] - delta[idx];
                 new_t2[idx] = max_duration[idx] - (delta_t3[idx] - delta[idx]);
@@ -392,6 +391,8 @@ impl TrapezoidalLineSegment {
 
             new_t3[idx] = max_duration[idx];
         });
+
+        // log::debug!("New start_accel {:?}", self.start_accel);
 
         let old = self.max_velocity;
 

@@ -182,9 +182,9 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
             acceleration: Vector3::repeat(5.0),
         },
         Point {
-            position: Vector3::repeat(0.0),
-            // position: Vector3::new(2.0, 0.0, 3.0),
-            velocity: Vector3::new(0.0, 0.0, 3.0),
+            // position: Vector3::repeat(0.0),
+            position: Vector3::new(2.0, 0.0, 3.0),
+            velocity: Vector3::new(1.0, 0.0, 3.0),
             // velocity: Vector3::zeros(),
         },
         Point {
