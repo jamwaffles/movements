@@ -3,7 +3,7 @@ mod linuxcnc_trapezoidal;
 mod traj_1d_trapezoidal;
 mod traj_nd_trapezoidal;
 
-use linuxcnc_no_blend::{Limits, Trajectory};
+use linuxcnc_trapezoidal::{Limits, Trajectory};
 use std::cell::RefCell;
 use std::panic;
 use std::rc::Rc;
@@ -37,7 +37,7 @@ fn draw_profiles(
     width: u32,
     height: u32,
 ) {
-    let y_scale = 15.0;
+    let y_scale = 70.0;
 
     let baseline = height / 2;
 
