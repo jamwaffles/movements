@@ -1,12 +1,13 @@
-mod linuxcnc_no_blend;
 mod linuxcnc_trapezoidal;
+mod linuxcnc_trapezoidal_1d;
 mod traj_1d_trapezoidal;
 mod traj_nd_trapezoidal;
 
-use linuxcnc_no_blend::{Limits, Trajectory};
+use nalgebra::Vector3;
 use std::cell::RefCell;
 use std::panic;
 use std::rc::Rc;
+use traj_nd_trapezoidal::{Limits, Point, TrapezoidalLineSegment};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::CanvasRenderingContext2d;
@@ -15,33 +16,53 @@ use web_sys::Element;
 struct Controls {
     max_velocity: Element,
     max_acceleration: Element,
+    start_velocity: Element,
+    end_velocity: Element,
 }
 
-fn display_config(container: &Element, config: &Trajectory) {
+fn display_config(container: &Element, config: &TrapezoidalLineSegment) {
     container.set_inner_html(&format!("{:#?}", config));
 }
 
-fn display_hover(container: &Element, (time, pos, vel, acc): (f32, f32, f32, f32)) {
+fn display_hover(
+    container: &Element,
+    (time, pos, vel, acc): (f32, Vector3<f32>, Vector3<f32>, Vector3<f32>),
+) {
     container.set_inner_html(&format!(
         "Time:         {:0.2}
-Position:     {:0.2}
-Velocity:     {:0.2}
-Acceleration: {:0.2}",
-        time, pos, vel, acc
+Position:     {:0.2}, {:0.2}, {:0.2}
+Velocity:     {:0.2}, {:0.2}, {:0.2}
+Acceleration: {:0.2}, {:0.2}, {:0.2}",
+        time, pos[0], pos[1], pos[2], vel[0], vel[1], vel[2], acc[0], acc[1], acc[2]
     ));
 }
 
 fn draw_profiles(
     context: &CanvasRenderingContext2d,
-    segment: &Trajectory,
+    segment: &TrapezoidalLineSegment,
     width: u32,
     height: u32,
 ) {
+    context.clear_rect(0.0, 0.0, width as f64, height as f64);
+
+    for i in 0..(Vector3::<f32>::zeros().len()) {
+        draw_axis_profiles(context, segment, width, height, i)
+    }
+
+    // draw_axis_profiles(context, segment, width, height, 2);
+}
+
+fn draw_axis_profiles(
+    context: &CanvasRenderingContext2d,
+    segment: &TrapezoidalLineSegment,
+    width: u32,
+    height: u32,
+    index: usize,
+) {
     let y_scale = 15.0;
 
-    let baseline = height / 2;
-
-    context.clear_rect(0.0, 0.0, width as f64, height as f64);
+    // let baseline = (height / 2) + (index as u32 * 10);
+    let baseline = (height / 2) + (index as u32 * 0);
 
     // context.set_line_width((index + 1) as f64);
 
@@ -54,18 +75,22 @@ fn draw_profiles(
 
     let points = (0..width)
         .filter_map(|i| {
-            let time = segment.duration() * i as f32 / width as f32;
+            let time = segment.max_duration() * i as f32 / width as f32;
 
-            if time > segment.duration() {
+            if time > segment.duration()[index as usize] {
                 return None;
             }
 
             segment
                 .position(time)
-                .map(|(position, velocity, acceleration)| {
+                .map(|(Point { position, velocity }, acceleration)| {
+                    let position = position[index];
+                    let velocity = velocity[index];
+                    let acceleration = acceleration[index];
+
                     let position = baseline as f32 - position * y_scale;
-                    let velocity = baseline as f32 - velocity * y_scale;
-                    let acceleration = baseline as f32 - acceleration * y_scale;
+                    let velocity = baseline as f32 - velocity * y_scale + 3.0;
+                    let acceleration = baseline as f32 - acceleration * y_scale + 6.0;
 
                     let x = i as f64;
 
@@ -74,7 +99,6 @@ fn draw_profiles(
         })
         .collect::<Vec<_>>();
 
-    // Position in red
     context.begin_path();
     context.set_stroke_style(&("#f00".into()));
     context.move_to(0.0, points.get(0).map(|p| p.1).unwrap_or(0.0) as f64);
@@ -84,7 +108,6 @@ fn draw_profiles(
     context.stroke();
     context.close_path();
 
-    // Velocity in green
     context.begin_path();
     context.set_stroke_style(&("darkgreen".into()));
     context.move_to(0.0, points.get(0).map(|p| p.2).unwrap_or(0.0) as f64);
@@ -94,7 +117,6 @@ fn draw_profiles(
     context.stroke();
     context.close_path();
 
-    // Acceleration in blue
     context.begin_path();
     context.set_stroke_style(&("#00f".into()));
     context.move_to(0.0, points.get(0).map(|p| p.3).unwrap_or(0.0) as f64);
@@ -137,12 +159,12 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         max_acceleration: control_inputs
             .query_selector("[name=max_acceleration]")?
             .expect("Required input name max_velocity missing"),
-        // start_velocity: control_inputs
-        //     .query_selector("[name=start_velocity]")?
-        //     .expect("Required input name start_velocity missing"),
-        // end_velocity: control_inputs
-        //     .query_selector("[name=end_velocity]")?
-        //     .expect("Required input name end_velocity missing"),
+        start_velocity: control_inputs
+            .query_selector("[name=start_velocity]")?
+            .expect("Required input name start_velocity missing"),
+        end_velocity: control_inputs
+            .query_selector("[name=end_velocity]")?
+            .expect("Required input name end_velocity missing"),
     };
 
     let width = 1000;
@@ -156,16 +178,23 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()?;
 
-    let mut segment = Trajectory::new(Limits {
-        velocity: 2.0,
-        acceleration: 5.0,
-    });
-
-    segment.add_stuff(1.0, 1.0);
-    segment.add_stuff(2.0, 0.5);
-    segment.add_stuff(3.0, 2.0);
-    segment.add_stuff(1.0, 2.0);
-    segment.add_stuff(5.0, 0.5);
+    let segment = TrapezoidalLineSegment::new(
+        Limits {
+            velocity: Vector3::repeat(2.0),
+            acceleration: Vector3::repeat(5.0),
+        },
+        Point {
+            // position: Vector3::repeat(0.0),
+            position: Vector3::new(2.0, 0.0, 3.0),
+            velocity: Vector3::new(1.0, 0.0, 5.0),
+            // velocity: Vector3::zeros(),
+        },
+        Point {
+            position: Vector3::repeat(10.0),
+            velocity: Vector3::new(0.0, 0.0, 2.0),
+            // velocity: Vector3::zeros(),
+        },
+    );
 
     draw_profiles(&context, &segment, width, height);
     display_config(&out, &segment);
@@ -192,6 +221,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
                 .value();
 
             let max_velocity = value.parse::<f32>().expect("Value is not valid f32");
+            let max_velocity = Vector3::repeat(max_velocity);
 
             segment.borrow_mut().set_velocity_limit(max_velocity);
 
@@ -222,6 +252,7 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
                 .value();
 
             let max_acceleration = value.parse::<f32>().expect("Value is not valid f32");
+            let max_acceleration = Vector3::repeat(max_acceleration);
 
             segment
                 .borrow_mut()
@@ -237,67 +268,67 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         closure.forget();
     }
 
-    // // Start velocity handler
-    // {
-    //     let controls = controls.clone();
-    //     let out = out.clone();
-    //     let segment = segment.clone();
-    //     let context = context.clone();
+    // Start velocity handler
+    {
+        let controls = controls.clone();
+        let out = out.clone();
+        let segment = segment.clone();
+        let context = context.clone();
 
-    //     let closure = Closure::wrap(Box::new(move |event: web_sys::InputEvent| {
-    //         let value = event
-    //             .target()
-    //             .as_ref()
-    //             .map(|t| wasm_bindgen::JsCast::dyn_ref::<web_sys::HtmlInputElement>(t))
-    //             .expect("Unable to get value")
-    //             .expect("Unable to get value")
-    //             .value();
+        let closure = Closure::wrap(Box::new(move |event: web_sys::InputEvent| {
+            let value = event
+                .target()
+                .as_ref()
+                .map(|t| wasm_bindgen::JsCast::dyn_ref::<web_sys::HtmlInputElement>(t))
+                .expect("Unable to get value")
+                .expect("Unable to get value")
+                .value();
 
-    //         let start_velocity = value.parse::<f32>().expect("Value is not valid f32");
-    //         let start_velocity = Vector3::repeat(start_velocity);
+            let start_velocity = value.parse::<f32>().expect("Value is not valid f32");
+            let start_velocity = Vector3::repeat(start_velocity);
 
-    //         segment.borrow_mut().set_start_velocity(start_velocity);
+            segment.borrow_mut().set_start_velocity(start_velocity);
 
-    //         display_config(&out, &segment.borrow());
-    //         draw_profiles(&context.borrow(), &segment.borrow(), width, height);
-    //     }) as Box<dyn FnMut(_)>);
+            display_config(&out, &segment.borrow());
+            draw_profiles(&context.borrow(), &segment.borrow(), width, height);
+        }) as Box<dyn FnMut(_)>);
 
-    //     controls
-    //         .start_velocity
-    //         .add_event_listener_with_callback("input", closure.as_ref().unchecked_ref())?;
-    //     closure.forget();
-    // }
+        controls
+            .start_velocity
+            .add_event_listener_with_callback("input", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
 
-    // // End velocity handler
-    // {
-    //     let controls = controls;
-    //     let out = out;
-    //     let segment = segment.clone();
-    //     let context = context;
+    // End velocity handler
+    {
+        let controls = controls;
+        let out = out;
+        let segment = segment.clone();
+        let context = context;
 
-    //     let closure = Closure::wrap(Box::new(move |event: web_sys::InputEvent| {
-    //         let value = event
-    //             .target()
-    //             .as_ref()
-    //             .map(|t| wasm_bindgen::JsCast::dyn_ref::<web_sys::HtmlInputElement>(t))
-    //             .expect("Unable to get value")
-    //             .expect("Unable to get value")
-    //             .value();
+        let closure = Closure::wrap(Box::new(move |event: web_sys::InputEvent| {
+            let value = event
+                .target()
+                .as_ref()
+                .map(|t| wasm_bindgen::JsCast::dyn_ref::<web_sys::HtmlInputElement>(t))
+                .expect("Unable to get value")
+                .expect("Unable to get value")
+                .value();
 
-    //         let end_velocity = value.parse::<f32>().expect("Value is not valid f32");
-    //         let end_velocity = Vector3::repeat(end_velocity);
+            let end_velocity = value.parse::<f32>().expect("Value is not valid f32");
+            let end_velocity = Vector3::repeat(end_velocity);
 
-    //         segment.borrow_mut().set_end_velocity(end_velocity);
+            segment.borrow_mut().set_end_velocity(end_velocity);
 
-    //         display_config(&out, &segment.borrow());
-    //         draw_profiles(&context.borrow(), &segment.borrow(), width, height);
-    //     }) as Box<dyn FnMut(_)>);
+            display_config(&out, &segment.borrow());
+            draw_profiles(&context.borrow(), &segment.borrow(), width, height);
+        }) as Box<dyn FnMut(_)>);
 
-    //     controls
-    //         .end_velocity
-    //         .add_event_listener_with_callback("input", closure.as_ref().unchecked_ref())?;
-    //     closure.forget();
-    // }
+        controls
+            .end_velocity
+            .add_event_listener_with_callback("input", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+    }
 
     // Mousemove handler
     {
@@ -307,9 +338,11 @@ pub fn start(container: web_sys::HtmlDivElement) -> Result<(), JsValue> {
         let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
             let x = event.offset_x();
 
-            let time = segment.borrow().duration() * x as f32 / width as f32;
+            let time = segment.borrow().max_duration() * x as f32 / width as f32;
 
-            if let Some((position, velocity, acceleration)) = segment.borrow().position(time) {
+            if let Some((Point { position, velocity }, acceleration)) =
+                segment.borrow().position(time)
+            {
                 display_hover(&hover, (time, position, velocity, acceleration));
             }
         }) as Box<dyn FnMut(_)>);
