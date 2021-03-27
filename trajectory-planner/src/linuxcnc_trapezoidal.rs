@@ -126,12 +126,39 @@ impl Trajectory {
 
         let mut new_segments = Vec::new();
 
+        // new_segments.push(Move::Blend(Blend {
+        //     start: 0.0,
+        //     duration: 0.0,
+        //     start_time: 0.0,
+        //     acceleration: 0.0,
+        //     start_velocity: 0.0,
+        // }));
+
         while let Some(mut s2) = it.next() {
             // If there's a previous segment
             if let Some(s1) = s1.as_mut() {
                 let blend_accel = (s2.velocity - s1.velocity).signum() * self.limits.acceleration;
 
-                let blend_duration = (s2.velocity - s1.velocity).abs() / self.limits.acceleration;
+                let mut blend_duration =
+                    (s2.velocity - s1.velocity).abs() / self.limits.acceleration;
+
+                log::debug!(
+                    "s1 {:0.3} blend {:0.3} s2 {:0.3}",
+                    s1.duration,
+                    blend_duration,
+                    s2.duration
+                );
+
+                // if blend_duration > s1.duration || blend_duration > s2.duration {
+                //     let reduction_factor = (s1.duration.min(s2.duration) / blend_duration).sqrt();
+
+                //     log::debug!("Clamp {}", reduction_factor);
+
+                //     // blend_duration *= reduction_factor;
+
+                //     // s1.velocity *= reduction_factor;
+                //     // s2.velocity *= reduction_factor;
+                // }
 
                 let offset = blend_duration / 2.0;
 
@@ -146,19 +173,20 @@ impl Trajectory {
                     start_velocity: s1.velocity,
                 };
 
-                // log::debug!("{:?}", blend);
-
                 // Modify end of first segment
                 *s1 = LinearSegment {
                     duration: s1_duration,
                     ..*s1
                 };
 
-                // Modify start of next segment. NOTE: The blend overlaps the end of s1 and start of
-                // s2. To consume the queue, these overlaps need to be recomputed.
+                // Modify start of next segment
                 s2 = LinearSegment {
-                    // duration: s2.duration - offset,
-                    // start_time: s2.start_time + offset,
+                    duration: s2.duration - offset,
+                    start_time: s2.start_time + offset,
+                    start: {
+                        // Position at end of blend
+                        blend.start + 0.5 * (s2.velocity + blend.start_velocity) * blend.duration
+                    },
                     ..s2
                 };
 
@@ -178,54 +206,46 @@ impl Trajectory {
             }
         }
 
-        // // Compute accel/decel between segments
-        // let segments = segments
-        //     .windows(2)
-        //     .map(|segments| {
-        //         if let [s1, s2] = *segments {
-        //             let blend_accel =
-        //                 (s2.velocity - s1.velocity).signum() * self.limits.acceleration;
-
-        //             let blend_duration =
-        //                 (s2.velocity - s1.velocity).abs() / self.limits.acceleration;
-
-        //             let offset = blend_duration / 2.0;
-
-        //             let s1_duration = s1.duration - offset;
-        //             let s1_end_time = s1.start_time + s1_duration;
-
-        //             let blend = Blend {
-        //                 start: s1.start + (s1.velocity * s1_duration),
-        //                 start_time: s1_end_time,
-        //                 duration: blend_duration,
-        //                 acceleration: blend_accel,
-        //                 start_velocity: s1.velocity,
-        //             };
-
-        //             log::debug!("{:?}", blend);
-
-        //             // Reduce linear durations by half the blend duration
-        //             let s1 = LinearSegment {
-        //                 duration: s1_duration,
-        //                 ..s1
-        //             };
-
-        //             let s2 = LinearSegment {
-        //                 duration: s2.duration - offset,
-        //                 start_time: s2.start_time + offset,
-        //                 ..s2
-        //             };
-
-        //             vec![Move::Linear(s1), Move::Blend(blend), Move::Linear(s2)]
-        //         } else {
-        //             unreachable!()
-        //         }
-        //     })
-        //     .flatten()
-        //     .collect::<Vec<_>>();
+        // new_segments.push(Move::Blend(Blend {
+        //     start: 0.0,
+        //     duration: 0.0,
+        //     start_time: new_segments.last().unwrap().end_time(),
+        //     acceleration: 0.0,
+        //     start_velocity: 0.0,
+        // }));
 
         self.queue = new_segments;
+
+        // self.clamp_blends();
     }
+
+    // fn clamp_blends(&mut self) {
+    //     for i in 0..(self.queue.len().saturating_sub(2)) {
+    //         // let a = ;
+    //         // let b = self.queue.get_mut(i + 1);
+    //         // let c = self.queue.get_mut(i + 2);
+
+    //         match self.queue.get_mut(i..=(i + 2)) {
+    //             // A blend between two linear segments. We might need to clamp them.
+    //             Some([Move::Linear(s1), Move::Blend(blend), Move::Linear(s2)]) => {
+    //                 log::debug!(
+    //                     "blend idx {}, s1 {:0.3} blend {:0.3} s2 {:0.3}",
+    //                     i + 1,
+    //                     s1.duration,
+    //                     blend.duration,
+    //                     s2.duration
+    //                 );
+
+    //                 if blend.duration > s1.duration / 2.0 || blend.duration > s2.duration / 2.0 {
+    //                     log::debug!("i {} overload", i);
+    //                 }
+    //             }
+    //             _ => {
+    //                 // Unknown combo, skip
+    //             }
+    //         }
+    //     }
+    // }
 
     /// Position, velocity and acceleration for a given time
     pub fn position(&self, time: f32) -> Option<(f32, f32, f32)> {
