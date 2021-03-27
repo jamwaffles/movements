@@ -3,7 +3,7 @@ mod linuxcnc_trapezoidal;
 mod traj_1d_trapezoidal;
 mod traj_nd_trapezoidal;
 
-use linuxcnc_trapezoidal::{Limits, Trajectory};
+use linuxcnc_trapezoidal::{Limits, Move, Trajectory};
 use std::cell::RefCell;
 use std::panic;
 use std::rc::Rc;
@@ -37,13 +37,13 @@ fn draw_profiles(
     width: u32,
     height: u32,
 ) {
+    context.clear_rect(0.0, 0.0, width as f64, height as f64);
+
     let y_scale = 70.0;
 
     let baseline = height / 2;
 
-    context.clear_rect(0.0, 0.0, width as f64, height as f64);
-
-    // context.set_line_width((index + 1) as f64);
+    draw_switching_points(context, segment, width, height);
 
     context.begin_path();
     context.set_stroke_style(&("#aaa".into()));
@@ -103,6 +103,30 @@ fn draw_profiles(
     }
     context.stroke();
     context.close_path();
+}
+
+fn draw_switching_points(
+    context: &CanvasRenderingContext2d,
+    segment: &Trajectory,
+    width: u32,
+    height: u32,
+) {
+    let duration = segment.duration();
+
+    context.set_stroke_style(&("#aaa".into()));
+
+    // Vertical lines
+    for segment in segment.queue.iter() {
+        let t = segment.start_time();
+
+        let x = (t / duration) * width as f32;
+
+        context.begin_path();
+        context.move_to(x as f64, 0.0);
+        context.line_to(x as f64, height as f64);
+        context.stroke();
+        context.close_path();
+    }
 }
 
 #[wasm_bindgen]
