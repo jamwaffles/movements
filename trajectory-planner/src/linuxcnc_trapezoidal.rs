@@ -1,3 +1,5 @@
+use std::io::LineWriter;
+
 /// Trajectory generation based loosely on old LinuxCNC trajectory planner information presented
 /// [here](http://wiki.linuxcnc.org/cgi-bin/wiki.pl?Trapezoidal_Velocity_Profile_Trajectory_Planner).
 
@@ -16,11 +18,11 @@ pub struct Limits {
 #[derive(Debug, Clone, Copy)]
 pub struct Blend {
     /// Start position
-    start: f32,
-    duration: f32,
-    start_time: f32,
-    acceleration: f32,
-    start_velocity: f32,
+    pub start: f32,
+    pub duration: f32,
+    pub start_time: f32,
+    pub acceleration: f32,
+    pub start_velocity: f32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -30,7 +32,7 @@ pub enum Move {
 }
 
 impl Move {
-    fn start_time(&self) -> f32 {
+    pub fn start_time(&self) -> f32 {
         match self {
             Move::Linear(segment) => segment.start_time,
             Move::Blend(segment) => segment.start_time,
@@ -51,18 +53,18 @@ impl Move {
 
 #[derive(Debug, Clone, Copy)]
 pub struct LinearSegment {
-    start: f32,
-    end: f32,
-    velocity: f32,
-    duration: f32,
-    start_time: f32,
+    pub start: f32,
+    pub end: f32,
+    pub velocity: f32,
+    pub duration: f32,
+    pub start_time: f32,
 }
 
 #[derive(Debug, Clone)]
 pub struct Trajectory {
     limits: Limits,
-    queue: Vec<Move>,
-    points: Vec<Point>,
+    pub queue: Vec<Move>,
+    pub points: Vec<Point>,
 }
 
 impl Trajectory {
@@ -82,6 +84,66 @@ impl Trajectory {
         });
 
         self.recompute()
+    }
+
+    fn compute_blend(
+        &self,
+        s1: LinearSegment,
+        s2: LinearSegment,
+    ) -> (LinearSegment, Blend, LinearSegment) {
+        let blend_accel = (s2.velocity - s1.velocity).signum() * self.limits.acceleration;
+
+        let mut blend_duration = (s2.velocity - s1.velocity).abs() / self.limits.acceleration;
+
+        // log::debug!(
+        //     "s1 {:0.3} blend {:0.3} s2 {:0.3}",
+        //     s1.duration,
+        //     blend_duration,
+        //     s2.duration
+        // );
+
+        // if blend_duration > s1.duration || blend_duration > s2.duration {
+        //     let reduction_factor = (s1.duration.min(s2.duration) / blend_duration).sqrt();
+
+        //     log::debug!("Clamp {}", reduction_factor);
+
+        //     // blend_duration *= reduction_factor;
+
+        //     // s1.velocity *= reduction_factor;
+        //     // s2.velocity *= reduction_factor;
+        // }
+
+        let offset = blend_duration / 2.0;
+
+        let s1_duration = s1.duration - offset;
+        let s1_end_time = s1.start_time + s1_duration;
+
+        let blend = Blend {
+            start: s1.start + (s1.velocity * s1_duration),
+            start_time: s1_end_time,
+            duration: blend_duration,
+            acceleration: blend_accel,
+            start_velocity: s1.velocity,
+        };
+
+        // Modify end of first segment
+        let s1 = LinearSegment {
+            duration: s1_duration,
+            ..s1
+        };
+
+        // Modify start of next segment
+        let s2 = LinearSegment {
+            duration: s2.duration - offset,
+            start_time: s2.start_time + offset,
+            start: {
+                // Position at end of blend
+                blend.start + 0.5 * (s2.velocity + blend.start_velocity) * blend.duration
+            },
+            ..s2
+        };
+
+        (s1, blend, s2)
     }
 
     fn recompute(&mut self) {
@@ -126,78 +188,51 @@ impl Trajectory {
 
         let mut new_segments = Vec::new();
 
-        // new_segments.push(Move::Blend(Blend {
-        //     start: 0.0,
-        //     duration: 0.0,
-        //     start_time: 0.0,
-        //     acceleration: 0.0,
-        //     start_velocity: 0.0,
-        // }));
+        new_segments.push(Move::Blend(Blend {
+            start: 0.0,
+            duration: 0.0,
+            start_time: 0.0,
+            acceleration: 0.0,
+            start_velocity: 0.0,
+        }));
 
         while let Some(mut s2) = it.next() {
             // If there's a previous segment
             if let Some(s1) = s1.as_mut() {
-                let blend_accel = (s2.velocity - s1.velocity).signum() * self.limits.acceleration;
+                let (mut new_s1, mut blend, mut new_s2) = self.compute_blend(*s1, s2);
 
-                let mut blend_duration =
-                    (s2.velocity - s1.velocity).abs() / self.limits.acceleration;
+                // // Clamp velocities
+                // if new_s1.duration < 0.0 || new_s2.duration < 0.0 {
+                //     // let duration_reduction = (s1.duration - (blend_duration / 2.0))
+                //     //     .min(new_s2.duration - (blend_duration / 2.0));
 
-                log::debug!(
-                    "s1 {:0.3} blend {:0.3} s2 {:0.3}",
-                    s1.duration,
-                    blend_duration,
-                    s2.duration
-                );
+                //     log::debug!("delta {} {}", new_s1.duration, new_s2.duration);
 
-                // if blend_duration > s1.duration || blend_duration > s2.duration {
-                //     let reduction_factor = (s1.duration.min(s2.duration) / blend_duration).sqrt();
+                //     let reduce = new_s1.duration;
 
-                //     log::debug!("Clamp {}", reduction_factor);
+                //     log::debug!(
+                //         "new_s2 {} -> {}",
+                //         new_s2.velocity,
+                //         new_s2.velocity - reduce.abs() * new_s2.velocity.signum()
+                //     );
 
-                //     // blend_duration *= reduction_factor;
+                //     new_s2.velocity -= reduce.abs() * new_s2.velocity.signum();
 
-                //     // s1.velocity *= reduction_factor;
-                //     // s2.velocity *= reduction_factor;
+                //     let (a, b, c) = self.compute_blend(new_s1, new_s2);
+
+                //     new_s1 = a;
+                //     blend = b;
+                //     new_s2 = c;
                 // }
 
-                let offset = blend_duration / 2.0;
-
-                let s1_duration = s1.duration - offset;
-                let s1_end_time = s1.start_time + s1_duration;
-
-                let blend = Blend {
-                    start: s1.start + (s1.velocity * s1_duration),
-                    start_time: s1_end_time,
-                    duration: blend_duration,
-                    acceleration: blend_accel,
-                    start_velocity: s1.velocity,
-                };
-
-                // Modify end of first segment
-                *s1 = LinearSegment {
-                    duration: s1_duration,
-                    ..*s1
-                };
-
-                // Modify start of next segment
-                s2 = LinearSegment {
-                    duration: s2.duration - offset,
-                    start_time: s2.start_time + offset,
-                    start: {
-                        // Position at end of blend
-                        blend.start + 0.5 * (s2.velocity + blend.start_velocity) * blend.duration
-                    },
-                    ..s2
-                };
-
                 // Push first segment
-                new_segments.push(Move::Linear(*s1));
+                new_segments.push(Move::Linear(new_s1));
 
                 // Push blend
                 new_segments.push(Move::Blend(blend));
 
                 // Set up first blend for next iteration
-                *s1 = s2;
+                *s1 = new_s2;
             }
             // Otherwise push a new one and continue
             else {
@@ -216,36 +251,56 @@ impl Trajectory {
 
         self.queue = new_segments;
 
-        // self.clamp_blends();
+        self.clamp_blends();
     }
 
-    // fn clamp_blends(&mut self) {
-    //     for i in 0..(self.queue.len().saturating_sub(2)) {
-    //         // let a = ;
-    //         // let b = self.queue.get_mut(i + 1);
-    //         // let c = self.queue.get_mut(i + 2);
+    fn clamp_blends(&mut self) {
+        for i in 0..(self.queue.len().saturating_sub(2)) {
+            // let a = ;
+            // let b = self.queue.get_mut(i + 1);
+            // let c = self.queue.get_mut(i + 2);
 
-    //         match self.queue.get_mut(i..=(i + 2)) {
-    //             // A blend between two linear segments. We might need to clamp them.
-    //             Some([Move::Linear(s1), Move::Blend(blend), Move::Linear(s2)]) => {
-    //                 log::debug!(
-    //                     "blend idx {}, s1 {:0.3} blend {:0.3} s2 {:0.3}",
-    //                     i + 1,
-    //                     s1.duration,
-    //                     blend.duration,
-    //                     s2.duration
-    //                 );
+            match self.queue.get_mut(i..=(i + 2)) {
+                // Two accel/decel phases with a cruise in between: a trapezoidal profile.
+                Some([Move::Blend(b1), Move::Linear(s1), Move::Blend(b2)]) => {
+                    // log::debug!(
+                    //     "blend idx {}, s1 {:0.3} blend {:0.3} s2 {:0.3}",
+                    //     i + 1,
+                    //     b1.duration,
+                    //     s1.duration,
+                    //     b2.duration,
+                    // );
 
-    //                 if blend.duration > s1.duration / 2.0 || blend.duration > s2.duration / 2.0 {
-    //                     log::debug!("i {} overload", i);
-    //                 }
-    //             }
-    //             _ => {
-    //                 // Unknown combo, skip
-    //             }
-    //         }
-    //     }
-    // }
+                    // Don't have enough time to reach full velocity and do the blend
+                    if s1.duration < 0.0 {
+                        // log::debug!("i {} overload", i + 1);
+
+                        let reduce = s1.duration.abs();
+
+                        b1.duration -= reduce;
+
+                        let b1_end = b1.start
+                            + ((b1.start_velocity * b1.duration)
+                                + (0.5 * b1.acceleration * b1.duration.powi(2)));
+
+                        let new_velocity = b1.start_velocity + b1.duration * b1.acceleration;
+
+                        s1.velocity = new_velocity;
+                        s1.duration = 0.0;
+                        s1.start_time = b1.start_time + b1.duration;
+                        s1.start = b1_end;
+                        b2.start = b1_end;
+                        b2.start_velocity = new_velocity;
+                        b2.start_time = s1.start_time;
+                        b2.duration -= reduce;
+                    }
+                }
+                _ => {
+                    // Unknown combo, skip
+                }
+            }
+        }
+    }
 
     /// Position, velocity and acceleration for a given time
     pub fn position(&self, time: f32) -> Option<(f32, f32, f32)> {
