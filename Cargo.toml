@@ -6,7 +6,8 @@ members = [
     "pathviewer",
     "realtime-test",
     "streaming-gcode-parser",
-    "trajectory-planner"
+    "trajectory-planner",
+    "playground",
 ]
 
 [patch.crates-io]
