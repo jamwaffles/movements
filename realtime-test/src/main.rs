@@ -9,12 +9,16 @@ fn main() {
     let default_prio = thread_priority().unwrap();
     let default_policy = thread_schedule_policy().unwrap();
 
+    let policy =  ThreadSchedulePolicy::Realtime(RealtimeThreadSchedulePolicy::Fifo);
+    // let policy =  ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Normal);
+
     // All new threads spawned by main() will have this priority.
     set_thread_priority_and_policy(
         thread_id,
         ThreadPriority::Min,
+        policy
         // ThreadSchedulePolicy::Realtime(RealtimeThreadSchedulePolicy::Fifo),
-        ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Normal),
+        // ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Normal),
     )
     .expect("Failed to set priority");
 
@@ -43,7 +47,7 @@ fn main() {
 
         histogram.increment(time.as_nanos() as u64).unwrap();
         // println!("elapsed: {:?}", time);
-        println!("{}", time.as_nanos());
+        // println!("{}", time.as_nanos());
     }
 
     // let min = histogram.minimum().unwrap();
@@ -57,13 +61,14 @@ fn main() {
     //     println!("{}, {}", bucket.value(), bucket.count());
     // }
 
-    // println!(
-    //     "Latency (ns): Min: {:?} Avg: {:?} Max: {:?} StdDev: {:?}",
-    //     Duration::from_nanos(histogram.minimum().unwrap()),
-    //     Duration::from_nanos(histogram.mean().unwrap()),
-    //     Duration::from_nanos(histogram.maximum().unwrap()),
-    //     Duration::from_nanos(histogram.stddev().unwrap()),
-    // );
+    println!(
+        "Scheduling policy {:?}\nLatency (ns): Min: {:?} Avg: {:?} Max: {:?} StdDev: {:?}",
+        policy,
+        Duration::from_nanos(histogram.minimum().unwrap()),
+        Duration::from_nanos(histogram.mean().unwrap()),
+        Duration::from_nanos(histogram.maximum().unwrap()),
+        Duration::from_nanos(histogram.stddev().unwrap()),
+    );
 
     // thread::spawn(move || {
     //     for _ in 0..count {
