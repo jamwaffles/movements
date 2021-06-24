@@ -78,7 +78,7 @@ fn main() {
     );
 
     println!("{}", stats);
-    eprint!("{}", stats);
+    eprintln!("{}", stats);
 
     // thread::spawn(move || {
     //     for _ in 0..count {
