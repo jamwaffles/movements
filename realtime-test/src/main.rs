@@ -9,8 +9,8 @@ fn main() {
     let default_prio = thread_priority().unwrap();
     let default_policy = thread_schedule_policy().unwrap();
 
-    let policy =  ThreadSchedulePolicy::Realtime(RealtimeThreadSchedulePolicy::Fifo);
-    // let policy =  ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Normal);
+    // let policy = ThreadSchedulePolicy::Realtime(RealtimeThreadSchedulePolicy::Fifo);
+    let policy = ThreadSchedulePolicy::Normal(NormalThreadSchedulePolicy::Normal);
 
     // All new threads spawned by main() will have this priority.
     set_thread_priority_and_policy(
@@ -33,12 +33,18 @@ fn main() {
     // .join()
     // .unwrap();
 
-    let period = 1;
-    let count = 10000;
+    let period = Duration::from_millis(1);
+    let count = std::env::args()
+        .nth(1)
+        .map(|arg| arg.parse::<u128>().expect("iterations must be an integer"))
+        .unwrap_or(5000);
+
+    eprintln!("Running for {} ms", period.as_millis() * count);
 
     let mut histogram = Histogram::new();
+
     let mut start = Instant::now();
-    let ticker = tick(Duration::from_millis(period));
+    let ticker = tick(period);
 
     for _ in 0..count {
         ticker.recv().unwrap();
@@ -47,7 +53,7 @@ fn main() {
 
         histogram.increment(time.as_nanos() as u64).unwrap();
         // println!("elapsed: {:?}", time);
-        // println!("{}", time.as_nanos());
+        println!("{}", time.as_nanos() as i64 - period.as_nanos() as i64);
     }
 
     // let min = histogram.minimum().unwrap();
@@ -61,14 +67,18 @@ fn main() {
     //     println!("{}, {}", bucket.value(), bucket.count());
     // }
 
-    println!(
-        "Scheduling policy {:?}\nLatency (ns): Min: {:?} Avg: {:?} Max: {:?} StdDev: {:?}",
+    let stats = format!(
+        "Ran for {} ms\nScheduling policy {:?}\nLatency (ns): Min: {:?} Avg: {:?} Max: {:?} StdDev: {:?}",
+        period.as_millis() * count,
         policy,
         Duration::from_nanos(histogram.minimum().unwrap()),
         Duration::from_nanos(histogram.mean().unwrap()),
         Duration::from_nanos(histogram.maximum().unwrap()),
         Duration::from_nanos(histogram.stddev().unwrap()),
     );
+
+    println!("{}", stats);
+    eprint!("{}", stats);
 
     // thread::spawn(move || {
     //     for _ in 0..count {

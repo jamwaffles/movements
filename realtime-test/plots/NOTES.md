@@ -1,0 +1,5 @@
+- compube-1.csv: mostly-idle run, some Firefox browsing.
+- compube-2.csv: ran in parallel with `cargo install cargo-edit --force` to get some max CPU usage going.
+- compube-3.csv: ran in parallel with `cargo install cargo-edit --force` to get some max CPU usage going.
+- compube-4.csv: another mostly-idle baseline
+- compube-5.csv: another mostly-idle baseline
