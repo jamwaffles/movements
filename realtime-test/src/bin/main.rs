@@ -1,9 +1,9 @@
 use std::{mem, process::exit, ptr};
 
 use libc::{
-    c_void, mlockall, posix_spawnattr_setschedparam, posix_spawnattr_setschedpolicy,
-    pthread_attr_init, pthread_attr_setstacksize, pthread_attr_t, pthread_create,
-    pthread_getschedparam, pthread_join, MCL_CURRENT, MCL_FUTURE, PTHREAD_STACK_MIN, SCHED_FIFO,
+    c_void, mlockall, pthread_attr_init, pthread_attr_setstacksize, pthread_attr_t, pthread_create,
+    pthread_getschedparam, pthread_join, sched_param, MCL_CURRENT, MCL_FUTURE, PTHREAD_STACK_MIN,
+    SCHED_FIFO,
 };
 
 extern "C" fn thread_start(main: *mut libc::c_void) -> *mut libc::c_void {
@@ -17,13 +17,42 @@ extern "C" fn thread_start(main: *mut libc::c_void) -> *mut libc::c_void {
     ptr::null_mut()
 }
 
-// Just a guess
-const PTHREAD_INHERIT_SCHED: usize = 0;
-const PTHREAD_EXPLICIT_SCHED: usize = 1;
+// Values from https://github.com/mahkoh/posix.rs/blob/master/src/pthread/linux/x86_64.rs
+const PTHREAD_INHERIT_SCHED: i32 = 0;
+const PTHREAD_EXPLICIT_SCHED: i32 = 1;
 
-// TODO: Enum `inheritsched`
-extern "C" {
-    fn pthread_attr_setinheritsched(attr: *mut pthread_attr_t, inheritsched: usize) -> libc::c_int;
+// From https://github.com/mahkoh/posix.rs/blob/master/src/pthread/mod.rs
+pub fn pthread_attr_setinheritsched(
+    attr: &mut pthread_attr_t,
+    inherit: libc::c_int,
+) -> libc::c_int {
+    extern "C" {
+        fn pthread_attr_setinheritsched(
+            attr: *mut pthread_attr_t,
+            inherit: libc::c_int,
+        ) -> libc::c_int;
+    }
+    unsafe { pthread_attr_setinheritsched(attr as *mut _, inherit) }
+}
+
+pub fn pthread_attr_setschedparam(attr: &mut pthread_attr_t, param: &sched_param) -> libc::c_int {
+    extern "C" {
+        fn pthread_attr_setschedparam(
+            attr: *mut pthread_attr_t,
+            param: *const sched_param,
+        ) -> libc::c_int;
+    }
+    unsafe { pthread_attr_setschedparam(attr as *mut _, param as *const _) }
+}
+
+pub fn pthread_attr_setschedpolicy(attr: &mut pthread_attr_t, policy: libc::c_int) -> libc::c_int {
+    extern "C" {
+        fn pthread_attr_setschedpolicy(
+            attr: *mut pthread_attr_t,
+            policy: libc::c_int,
+        ) -> libc::c_int;
+    }
+    unsafe { pthread_attr_setschedpolicy(attr as *mut _, policy) }
 }
 
 fn main() {
@@ -31,7 +60,7 @@ fn main() {
         let mut param: libc::sched_param = mem::zeroed();
         let mut thread: libc::pthread_t = mem::zeroed();
         let mut attr: libc::pthread_attr_t = mem::zeroed();
-        // let mut spawn_attr: libc::posix_spawnattr_t = mem::zeroed();
+        // let mut spawn_attr: libc::posix_attr_t = mem::zeroed();
 
         let func = move || {
             println!("Thread");
@@ -64,20 +93,14 @@ fn main() {
         }
 
         /* Set scheduler policy and priority of pthread */
-        let ret = posix_spawnattr_setschedpolicy(
-            &mut attr as *mut _ as *mut libc::posix_spawnattr_t,
-            SCHED_FIFO,
-        );
+        let ret = pthread_attr_setschedpolicy(&mut attr, SCHED_FIFO);
         println!("C");
         if ret != 0 {
             println!("pthread setschedpolicy failed\n");
             return;
         }
         param.sched_priority = 80;
-        let ret = posix_spawnattr_setschedparam(
-            &mut attr as *mut _ as *mut libc::posix_spawnattr_t,
-            &param,
-        );
+        let ret = pthread_attr_setschedparam(&mut attr, &param);
         println!("D");
         if ret != 0 {
             println!("pthread setschedparam failed\n");
