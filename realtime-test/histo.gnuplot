@@ -1,5 +1,7 @@
 # Plot with e.g. gnuplot -p -e "filename='compube-1.csv'" histo.gnuplot
 
+set terminal wxt size 1500,800
+
 binwidth=5
 bin(x,width)=width*floor(x/width)
 
