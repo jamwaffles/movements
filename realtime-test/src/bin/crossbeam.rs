@@ -1,3 +1,5 @@
+//! Crossbeam-based latency test
+
 use crossbeam::crossbeam_channel::tick;
 use histogram::*;
 use std::thread;

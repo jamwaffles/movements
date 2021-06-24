@@ -1,0 +1,2 @@
+[build]
+rustflags = ["-L", "/home/james/Repositories/rust/build/x86_64-unknown-linux-gnu/stage1-std/x86_64-unknown-linux-gnu/release"]
