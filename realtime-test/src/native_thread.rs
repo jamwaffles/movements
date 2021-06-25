@@ -1,8 +1,8 @@
 use libc::{
-    c_void, mlockall, pthread_attr_init, pthread_attr_setstacksize, pthread_attr_t, pthread_create,
-    pthread_getschedparam, pthread_join, sched_param, MCL_CURRENT, MCL_FUTURE, PTHREAD_STACK_MIN,
+    mlockall, pthread_attr_t, sched_get_priority_max, sched_get_priority_min, sched_param,
+    MCL_CURRENT, MCL_FUTURE, PTHREAD_STACK_MIN,
 };
-use std::{any::Any, cell::UnsafeCell, cmp, ffi::CStr, io, mem, ptr, sync::Arc, time::Duration};
+use std::{cmp, ffi::CStr, io, mem, ptr, time::Duration};
 
 use crate::{InheritPolicy, SchedPolicy};
 
@@ -20,6 +20,7 @@ impl Thread {
     pub unsafe fn new(
         stack: usize,
         sched_policy: SchedPolicy,
+        priority: i32,
         p: Box<dyn FnOnce()>,
     ) -> io::Result<Thread> {
         let p = Box::into_raw(Box::new(p));
@@ -27,6 +28,19 @@ impl Thread {
         let mut param: libc::sched_param = mem::zeroed();
         let mut native: libc::pthread_t = mem::zeroed();
         let mut attr: libc::pthread_attr_t = mem::zeroed();
+
+        let min_prio = sched_get_priority_min(sched_policy as i32);
+        let max_prio = sched_get_priority_max(sched_policy as i32);
+
+        assert!(
+            priority >= min_prio && priority <= max_prio,
+            "priority must be between {} and {}",
+            min_prio,
+            max_prio
+        );
+
+        // Lock memory
+        assert_eq!(mlockall(MCL_CURRENT | MCL_FUTURE), 0, "mlockall failed");
 
         // Initialise attributes
         assert_eq!(libc::pthread_attr_init(&mut attr), 0);
@@ -54,34 +68,29 @@ impl Thread {
             }
         };
 
+        // Set scheduler policy and priority of pthread
+        assert_eq!(
+            pthread_attr_setschedpolicy(&mut attr, sched_policy as i32),
+            0,
+            "pthread setschedpolicy failed"
+        );
 
-            // Lock memory
-            assert_eq!(mlockall(MCL_CURRENT | MCL_FUTURE), 0, "mlockall failed");
+        // TODO: Configurable prio
+        // TODO: Investigate why commenting this line out causes a segfault.
+        // TODO: Get sched_get_priority_min and sched_get_priority_max values
+        param.sched_priority = 80;
+        assert_eq!(
+            pthread_attr_setschedparam(&mut attr, &mut param),
+            0,
+            "pthread setschedparam failed"
+        );
 
-            // Set scheduler policy and priority of pthread
-            assert_eq!(
-                pthread_attr_setschedpolicy(&mut attr, sched_policy as i32),
-                0,
-                "pthread setschedpolicy failed"
-            );
-
-            // TODO: Configurable prio
-            // TODO: Investigate why commenting this line out causes a segfault.
-            // TODO: Get sched_get_priority_min and sched_get_priority_max values
-            param.sched_priority = 80;
-            assert_eq!(
-                pthread_attr_setschedparam(&mut attr, &mut param),
-                0,
-                "pthread setschedparam failed"
-            );
-
-            // Use scheduling parameters of attr
-            assert_eq!(
-                pthread_attr_setinheritsched(&mut attr, InheritPolicy::Explicit as i32),
-                0,
-                "pthread setinheritsched failed"
-            );
-
+        // Use scheduling parameters of attr
+        assert_eq!(
+            pthread_attr_setinheritsched(&mut attr, InheritPolicy::Explicit as i32),
+            0,
+            "pthread setinheritsched failed"
+        );
 
         let ret = libc::pthread_create(&mut native, &attr, thread_start, p as *mut _);
         // Note: if the thread creation fails and this assert fails, then p will
