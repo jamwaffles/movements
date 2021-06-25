@@ -1,84 +1,149 @@
-use std::{cmp, io, mem, ptr};
+use std::{mem, process::exit, ptr};
 
-// pub mod thread;
+use libc::{
+    c_void, mlockall, pthread_attr_init, pthread_attr_setstacksize, pthread_attr_t, pthread_create,
+    pthread_getschedparam, pthread_join, sched_param, MCL_CURRENT, MCL_FUTURE, PTHREAD_STACK_MIN,
+};
 
-pub struct Thread {
-    id: u64,
+extern "C" fn thread_start(main: *mut libc::c_void) -> *mut libc::c_void {
+    unsafe {
+        // Next, set up our stack overflow handler which may get triggered if we run
+        // out of stack.
+        // FIXME
+        // let _handler = stack_overflow::Handler::new();
+        // Finally, let's run some code.
+        Box::from_raw(main as *mut Box<dyn FnOnce()>)();
+    }
+    ptr::null_mut()
 }
 
-impl Thread {
-    pub fn join(self) {
-        unsafe {
-            let ret = libc::pthread_join(self.id, ptr::null_mut());
-            mem::forget(self);
-            assert!(
-                ret == 0,
-                "failed to join thread: {}",
-                io::Error::from_raw_os_error(ret)
-            );
+// From https://github.com/mahkoh/posix.rs/blob/master/src/pthread/mod.rs
+pub fn pthread_attr_setinheritsched(
+    attr: &mut pthread_attr_t,
+    inherit: libc::c_int,
+) -> libc::c_int {
+    extern "C" {
+        fn pthread_attr_setinheritsched(
+            attr: *mut pthread_attr_t,
+            inherit: libc::c_int,
+        ) -> libc::c_int;
+    }
+    unsafe { pthread_attr_setinheritsched(attr as *mut _, inherit) }
+}
+
+pub fn pthread_attr_setschedparam(attr: &mut pthread_attr_t, param: &sched_param) -> libc::c_int {
+    extern "C" {
+        fn pthread_attr_setschedparam(
+            attr: *mut pthread_attr_t,
+            param: *const sched_param,
+        ) -> libc::c_int;
+    }
+    unsafe { pthread_attr_setschedparam(attr as *mut _, param as *const _) }
+}
+
+pub fn pthread_attr_setschedpolicy(attr: &mut pthread_attr_t, policy: libc::c_int) -> libc::c_int {
+    extern "C" {
+        fn pthread_attr_setschedpolicy(
+            attr: *mut pthread_attr_t,
+            policy: libc::c_int,
+        ) -> libc::c_int;
+    }
+    unsafe { pthread_attr_setschedpolicy(attr as *mut _, policy) }
+}
+
+/// Values from https://github.com/mahkoh/posix.rs/blob/master/src/pthread/linux/x86_64.rs
+pub enum InheritPolicy {
+    Inherit = 0,
+    Explicit = 1,
+}
+
+pub enum SchedPolicy {
+    Other = 0,
+    Fifo = 1,
+    Rr = 2,
+    Batch = 3,
+    Idle = 5,
+}
+
+pub struct JoinHandle {
+    native_thread_id: u64,
+}
+
+impl JoinHandle {
+    pub fn join(self) -> Result<(), i32> {
+        let ret =
+            unsafe { pthread_join(self.native_thread_id, ptr::null_mut() as *mut *mut c_void) };
+
+        if ret != 0 {
+            Err(ret)
+        } else {
+            Ok(())
         }
     }
 }
 
-pub const DEFAULT_MIN_STACK_SIZE: usize = 2 * 1024 * 1024;
+// TODO: Return value
+pub fn spawn_with_policy<F>(func: F, policy: SchedPolicy) -> JoinHandle
+where
+    F: FnOnce() -> (),
+    F: Send + 'static,
+{
+    unsafe {
+        let mut param: libc::sched_param = mem::zeroed();
+        let mut thread: libc::pthread_t = mem::zeroed();
+        let mut attr: libc::pthread_attr_t = mem::zeroed();
 
-// Default on Linux
-pub const PAGE_SIZE: usize = 4096;
+        // Yes, this does appear to need a double box. What.
+        let func: Box<dyn FnOnce()> = Box::new(func);
+        let func = Box::into_raw(Box::new(func));
 
-pub unsafe fn spawn(stack: usize, p: Box<dyn FnOnce()>) -> io::Result<Thread> {
-    let p = Box::into_raw(p);
-    let mut native: libc::pthread_t = mem::zeroed();
-    let mut attr: libc::pthread_attr_t = mem::zeroed();
-    assert_eq!(libc::pthread_attr_init(&mut attr), 0);
-
-    let stack_size = cmp::max(stack, DEFAULT_MIN_STACK_SIZE);
-
-    println!("A");
-
-    match libc::pthread_attr_setstacksize(&mut attr, stack_size) {
-        0 => {}
-        n => {
-            assert_eq!(n, libc::EINVAL, "assert 1");
-            // EINVAL means |stack_size| is either too small or not a
-            // multiple of the system page size.  Because it's definitely
-            // >= PTHREAD_STACK_MIN, it must be an alignment issue.
-            // Round up to the nearest page and try again.
-            let page_size = PAGE_SIZE;
-            let stack_size =
-                (stack_size + page_size - 1) & (-(page_size as isize - 1) as usize - 1);
-            assert_eq!(libc::pthread_attr_setstacksize(&mut attr, stack_size), 0);
+        // Lock memory
+        if mlockall(MCL_CURRENT | MCL_FUTURE) == -1 {
+            println!("mlockall failed: %m\n");
+            exit(-2);
         }
-    };
 
-    println!("B");
+        // Initialize pthread attributes (default values)
+        let ret = pthread_attr_init(&mut attr);
+        assert_eq!(ret, 0, "init pthread attributes failed");
 
-    let ret = libc::pthread_create(&mut native, &attr, thread_start, p as *mut _);
-    // Note: if the thread creation fails and this assert fails, then p will
-    // be leaked. However, an alternative design could cause double-free
-    // which is clearly worse.
-    assert_eq!(libc::pthread_attr_destroy(&mut attr), 0, "assert 2");
+        // Set a specific stack size
+        let ret = pthread_attr_setstacksize(&mut attr, PTHREAD_STACK_MIN);
+        assert_eq!(ret, 0, "pthread setstacksize failed");
 
-    println!("C");
+        // Set scheduler policy and priority of pthread
+        let ret = pthread_attr_setschedpolicy(&mut attr, policy as i32);
+        assert_eq!(ret, 0, "pthread setschedpolicy failed");
 
-    return if ret != 0 {
-        // The thread failed to start and as a result p was not consumed. Therefore, it is
-        // safe to reconstruct the box so that it gets deallocated.
-        drop(Box::from_raw(p));
-        Err(io::Error::from_raw_os_error(ret))
-    } else {
-        println!("D");
-        Ok(Thread { id: native })
-    };
+        // TODO: Configurable prio
+        // param.sched_priority = 80;
+        let ret = pthread_attr_setschedparam(&mut attr, &mut param);
+        assert_eq!(ret, 0, "pthread setschedparam failed");
 
-    extern "C" fn thread_start(main: *mut libc::c_void) -> *mut libc::c_void {
-        println!("E");
-        unsafe {
-            //     // Next, set up our stack overflow handler which may get triggered if we run
-            //     // out of stack.
-            //     // let _handler = Handler::new();
-            //     // Finally, let's run some code.
-            Box::from_raw(main as *mut Box<dyn FnOnce()>)();
+        // Use scheduling parameters of attr
+        let ret = pthread_attr_setinheritsched(&mut attr, InheritPolicy::Explicit as i32);
+        assert_eq!(ret, 0, "pthread setinheritsched failed");
+
+        // Create a pthread with specified attributes
+        let ret = pthread_create(&mut thread, &mut attr, thread_start, func as *mut _);
+        assert_eq!(ret, 0, "create pthread failed");
+
+        // TODO: `pthread_attr_destroy`
+
+        // Just some debug
+        {
+            let mut new_policy = mem::zeroed();
+            let mut new_param = mem::zeroed();
+
+            let ret = pthread_getschedparam(thread, &mut new_policy, &mut new_param);
+            println!(
+                "Sched policy: {:?} {:?} {:?}",
+                ret, new_policy, new_param.sched_priority
+            );
         }
-        ptr::null_mut()
+
+        JoinHandle {
+            native_thread_id: thread,
+        }
     }
 }
