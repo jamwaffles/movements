@@ -54,7 +54,7 @@ impl Thread {
             }
         };
 
-        {
+
             // Lock memory
             assert_eq!(mlockall(MCL_CURRENT | MCL_FUTURE), 0, "mlockall failed");
 
@@ -66,7 +66,9 @@ impl Thread {
             );
 
             // TODO: Configurable prio
-            // param.sched_priority = 80;
+            // TODO: Investigate why commenting this line out causes a segfault.
+            // TODO: Get sched_get_priority_min and sched_get_priority_max values
+            param.sched_priority = 80;
             assert_eq!(
                 pthread_attr_setschedparam(&mut attr, &mut param),
                 0,
@@ -79,7 +81,7 @@ impl Thread {
                 0,
                 "pthread setinheritsched failed"
             );
-        }
+
 
         let ret = libc::pthread_create(&mut native, &attr, thread_start, p as *mut _);
         // Note: if the thread creation fails and this assert fails, then p will
