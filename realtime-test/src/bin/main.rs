@@ -1,11 +1,12 @@
+use chrono::SecondsFormat;
+use crossbeam::crossbeam_channel::tick;
+use histogram::*;
+use realtime_test::{spawn_unchecked, SchedPolicy};
 use std::{
     sync::mpsc::channel,
     thread,
     time::{Duration, Instant},
 };
-
-use chrono::SecondsFormat;
-use realtime_test::{spawn_unchecked, SchedPolicy};
 
 fn main() {
     let run_name = hostname::get().unwrap().into_string().unwrap();
@@ -30,23 +31,57 @@ fn main() {
     );
 
     // Servo period from LCNC
-    let period = Duration::from_micros(1000);
+    // let period = Duration::from_micros(1000);
     // Base thread period from LCNC
-    // let period = Duration::from_micros(25);
+    let period = Duration::from_micros(25);
+
+    let (tx, rx) = channel();
+
+    let mut histogram = Histogram::new();
 
     let thread = spawn_unchecked(policy, prio, move || {
         let mut start = Instant::now();
 
-        loop {
-            thread::sleep(period);
+        let ticker = tick(period);
 
+        for _ in 0..10000 {
+            ticker.recv().unwrap();
             let time = start.elapsed();
             start = start + start.elapsed();
 
-            println!("{}", time.as_nanos() as i64 - period.as_nanos() as i64);
+            tx.send(time.as_nanos() as u64).unwrap();
+            // println!("elapsed: {:?}", time);
+            // println!("{}", time.as_nanos() as i64 - period.as_nanos() as i64);
         }
+
+        // for _ in 0..10000 {
+        //     thread::sleep(period);
+
+        //     let time = start.elapsed();
+        //     start = start + start.elapsed();
+
+        //     // let value = time.as_nanos() as i64 - period.as_nanos() as i64;
+
+        //     // println!("{}", value);
+        //     tx.send(time.as_nanos() as u64).unwrap();
+        // }
     })
     .expect("Failed to spawn thread");
+
+    while let Ok(value) = rx.recv() {
+        histogram.increment(value).unwrap();
+    }
+
+    let stats = format!(
+        "Scheduling policy {:?}\nLatency (ns): Min: {:?} Avg: {:?} Max: {:?} StdDev: {:?}",
+        policy,
+        Duration::from_nanos(histogram.minimum().unwrap()).as_micros(),
+        Duration::from_nanos(histogram.mean().unwrap()).as_micros(),
+        Duration::from_nanos(histogram.maximum().unwrap()).as_micros(),
+        Duration::from_nanos(histogram.stddev().unwrap()).as_micros(),
+    );
+
+    println!("{}", stats);
 
     thread.join().unwrap();
 }
