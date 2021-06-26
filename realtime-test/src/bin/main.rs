@@ -29,15 +29,15 @@ fn main() {
         prio
     );
 
-    let period = Duration::from_millis(1);
-    // let (tx, rx) = channel();
-
-    println!("Running {}", run_name);
+    // Servo period from LCNC
+    let period = Duration::from_micros(1000);
+    // Base thread period from LCNC
+    // let period = Duration::from_micros(25);
 
     let thread = spawn_unchecked(policy, prio, move || {
         let mut start = Instant::now();
 
-        for _i in 0..5000 {
+        loop {
             thread::sleep(period);
 
             let time = start.elapsed();
