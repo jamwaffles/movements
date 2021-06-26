@@ -234,6 +234,8 @@ Written in TCL
 
 Calls `hal loadrt threads name$i=t_$thd period$i=$::LH($thd,period,ns)`
 
+A function is then added to the thread with `hal addf $::LH($thd,name) t_$thd`
+
 I think the `threads` components comes from `src/hal/components/threads.c`. I think it collects data through pins/params?
 
 `threads` calls `hal_create_thread` in `src/hal/hal_lib.c`.
@@ -243,3 +245,14 @@ This calls `rtapi_clock_set_period` (among other things)
 The "Unexpected realtime delay" messages comes from `Posix::wait` in `src/rtapi/uspace_rtapi_app.cc`.
 
 I think LCNC realtime threads end up being functions that are called on a period, with the thread sleeping in between?
+
+# LinuxCNC threading model
+
+You spawn a thread with a given period, then use `addf` calls to add a function to the thread. I guess then all the functions are called at the tick rate. If all the functions take too long, what happens next?
+
+# Latency tests for rPi
+
+- Jitter as I've already kinda done
+- Histogram GUI
+- ZMQ message passing round trip latency or just send latency or whatever
+- rPi GPIO toggling
