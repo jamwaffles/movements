@@ -256,3 +256,29 @@ You spawn a thread with a given period, then use `addf` calls to add a function 
 - Histogram GUI
 - ZMQ message passing round trip latency or just send latency or whatever
 - rPi GPIO toggling
+  - `sudo usermod -a -G gpio pi `
+  - I get 250KHz using a normal thread and the `gpio` crate just toggling on and off. It's jittery af and there are sizable gaps in it though.
+  - We get pretty much the same frequency and jitteriness when using RT threads, along with the dropouts in pulse train.
+  - A realtime thread with a 10ms sleep gives a pretty reliable 50KHz tone.
+
+# Klipper 3D printer firmware
+
+https://github.com/KevinOConnor/klipper/blob/e7b0e7b43bbf20bf89f47444fbbfc0e10aca1ed1/src/linux/main.c#L24
+
+Seems to set the current thread's priority once it's been spawned (or at least does it for the main thread).
+
+```cpp
+static int
+realtime_setup(void)
+{
+    struct sched_param sp;
+    memset(&sp, 0, sizeof(sp));
+    sp.sched_priority = 1;
+    int ret = sched_setscheduler(0, SCHED_FIFO, &sp);
+    if (ret < 0) {
+        report_errno("sched_setscheduler", ret);
+        return -1;
+    }
+    return 0;
+}
+```
