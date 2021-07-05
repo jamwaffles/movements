@@ -54,7 +54,7 @@ fn main() {
         }
 
         let stats = format!(
-        "Period {} us\nRan for {} ms\nScheduling policy {:?}\nLatency (ns): Min: {:?} Avg: {:?} Max: {:?} StdDev: {:?}",
+        "Period {:?} us\nRan for {} ms\nScheduling policy {:?}\nLatency (ns): Min: {:?} Avg: {:?} Max: {:?} StdDev: {:?}",
             period,
             period.as_millis() * count,
             policy,
