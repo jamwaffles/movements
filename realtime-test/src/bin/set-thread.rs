@@ -4,9 +4,22 @@ use gpio::GpioOut;
 use histogram::Histogram;
 use realtime_test::{spawn_unchecked, SchedPolicy};
 use std::{
-    mem, thread,
+    mem,
+    sync::mpsc::channel,
+    thread,
     time::{self, Duration, Instant},
 };
+
+fn set_thread_prio(prio: i32, policy: SchedPolicy) {
+    let mut param: libc::sched_param = unsafe { mem::zeroed() };
+    param.sched_priority = prio;
+
+    assert_eq!(
+        unsafe { libc::sched_setscheduler(0, policy as i32, &param) },
+        0,
+        "failed to set prio"
+    );
+}
 
 fn main() {
     let policy = std::env::args()
@@ -20,17 +33,6 @@ fn main() {
         .parse::<i32>()
         .expect("Prio must be a number");
 
-    {
-        let mut param: libc::sched_param = unsafe { mem::zeroed() };
-        param.sched_priority = prio;
-
-        assert_eq!(
-            unsafe { libc::sched_setscheduler(0, policy as i32, &param) },
-            0,
-            "failed to set prio"
-        );
-    }
-
     // Histogram
     {
         let period = Duration::from_micros(1000);
@@ -40,17 +42,30 @@ fn main() {
 
         let mut histogram = Histogram::new();
 
-        let mut start = Instant::now();
-        let ticker = tick(period);
+        let (tx, rx) = channel();
 
-        for _ in 0..count {
-            ticker.recv().unwrap();
-            let time = start.elapsed();
-            start = start + start.elapsed();
+        let handle = thread::spawn(move || {
+            set_thread_prio(prio, policy);
 
+            let mut start = Instant::now();
+            let ticker = tick(period);
+
+            for _ in 0..count {
+                ticker.recv().unwrap();
+                let time = start.elapsed();
+                start = start + start.elapsed();
+
+                // histogram.increment(time.as_nanos() as u64).unwrap();
+                tx.send(time);
+                // println!("elapsed: {:?}", time);
+                // println!("{}", time.as_nanos() as i64 - period.as_nanos() as i64);
+            }
+        });
+
+        handle.join().unwrap();
+
+        while let Ok(time) = rx.recv() {
             histogram.increment(time.as_nanos() as u64).unwrap();
-            // println!("elapsed: {:?}", time);
-            // println!("{}", time.as_nanos() as i64 - period.as_nanos() as i64);
         }
 
         let stats = format!(
@@ -64,7 +79,6 @@ fn main() {
             Duration::from_nanos(histogram.stddev().unwrap()),
         );
 
-        println!("{}", stats);
         eprintln!("{}", stats);
     }
 }
