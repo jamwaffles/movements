@@ -2,24 +2,13 @@ use chrono::SecondsFormat;
 use crossbeam::tick;
 use gpio::GpioOut;
 use histogram::Histogram;
-use realtime_test::{spawn_unchecked, SchedPolicy};
+use realtime_test::{set_thread_prio, spawn_unchecked, SchedPolicy};
 use std::{
     mem,
     sync::mpsc::channel,
     thread,
     time::{self, Duration, Instant},
 };
-
-fn set_thread_prio(prio: i32, policy: SchedPolicy) {
-    let mut param: libc::sched_param = unsafe { mem::zeroed() };
-    param.sched_priority = prio;
-
-    assert_eq!(
-        unsafe { libc::sched_setscheduler(0, policy as i32, &param) },
-        0,
-        "failed to set prio"
-    );
-}
 
 fn main() {
     let policy = std::env::args()

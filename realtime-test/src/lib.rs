@@ -128,107 +128,14 @@ where
         packet: Packet(my_packet),
     }))
 }
-// type ThreadResult<T> = Result<T, Box<dyn Any + Send + 'static>>;
 
-// // TODO: Return value
-// pub fn spawn_with_policy<'a, F, T>(func: F, policy: SchedPolicy) -> JoinHandle<T>
-// where
-//     F: FnOnce() -> T,
-//     F: Send + 'a,
-//     T: Send + 'a,
-// {
-//     unsafe {
-//         let mut param: libc::sched_param = mem::zeroed();
-//         let mut thread: libc::pthread_t = mem::zeroed();
-//         let mut attr: libc::pthread_attr_t = mem::zeroed();
+pub fn set_thread_prio(prio: i32, policy: SchedPolicy) {
+    let mut param: libc::sched_param = unsafe { mem::zeroed() };
+    param.sched_priority = prio;
 
-//         // // Yes, this does appear to need a double box. What.
-//         // let func: Box<dyn FnOnce()> = Box::new(func);
-//         // let func = Box::into_raw(Box::new(func));
-
-//         // Lock memory
-//         if mlockall(MCL_CURRENT | MCL_FUTURE) == -1 {
-//             println!("mlockall failed: %m\n");
-//             exit(-2);
-//         }
-
-//         // Initialize pthread attributes (default values)
-//         let ret = pthread_attr_init(&mut attr);
-//         assert_eq!(ret, 0, "init pthread attributes failed");
-
-//         // Set a specific stack size
-//         let ret = pthread_attr_setstacksize(&mut attr, PTHREAD_STACK_MIN);
-//         assert_eq!(ret, 0, "pthread setstacksize failed");
-
-//         // Set scheduler policy and priority of pthread
-//         let ret = pthread_attr_setschedpolicy(&mut attr, policy as i32);
-//         assert_eq!(ret, 0, "pthread setschedpolicy failed");
-
-//         // TODO: Configurable prio
-//         // param.sched_priority = 80;
-//         let ret = pthread_attr_setschedparam(&mut attr, &mut param);
-//         assert_eq!(ret, 0, "pthread setschedparam failed");
-
-//         // Use scheduling parameters of attr
-//         let ret = pthread_attr_setinheritsched(&mut attr, InheritPolicy::Explicit as i32);
-//         assert_eq!(ret, 0, "pthread setinheritsched failed");
-
-//         let my_packet: Arc<UnsafeCell<Option<ThreadResult<T>>>> = Arc::new(UnsafeCell::new(None));
-//         let their_packet = my_packet.clone();
-
-//         let main = move || {
-//             let try_result = panic::catch_unwind(panic::AssertUnwindSafe(|| func()));
-
-//             // SAFETY: `their_packet` as been built just above and moved by the
-//             // closure (it is an Arc<...>) and `my_packet` will be stored in the
-//             // same `JoinInner` as this closure meaning the mutation will be
-//             // safe (not modify it and affect a value far away).
-//             *their_packet.get() = Some(try_result);
-//         };
-
-//         let main = Box::new(main);
-
-//         // Create a pthread with specified attributes
-//         let ret = pthread_create(
-//             &mut thread,
-//             &mut attr,
-//             thread_start,
-//             Box::into_raw(mem::transmute::<
-//                 Box<dyn FnOnce() + 'a>,
-//                 Box<dyn FnOnce() + 'static>,
-//             >(Box::new(main))) as *mut _,
-//         );
-//         assert_eq!(ret, 0, "create pthread failed");
-
-//         extern "C" fn thread_start(main: *mut libc::c_void) -> *mut libc::c_void {
-//             unsafe {
-//                 // Next, set up our stack overflow handler which may get triggered if we run
-//                 // out of stack.
-//                 // FIXME
-//                 // let _handler = stack_overflow::Handler::new();
-//                 // Finally, let's run some code.
-//                 Box::from_raw(main as *mut Box<dyn FnOnce()>)();
-//             }
-//             ptr::null_mut()
-//         }
-
-//         // TODO: `pthread_attr_destroy`
-
-//         // Just some debug
-//         {
-//             let mut new_policy = mem::zeroed();
-//             let mut new_param = mem::zeroed();
-
-//             let ret = pthread_getschedparam(thread, &mut new_policy, &mut new_param);
-//             println!(
-//                 "Sched policy: {:?} {:?} {:?}",
-//                 ret, new_policy, new_param.sched_priority
-//             );
-//         }
-
-//         JoinHandle(JoinInner {
-//             native_thread_id: thread,
-//             packet: Packet(my_packet),
-//         })
-//     }
-// }
+    assert_eq!(
+        unsafe { libc::sched_setscheduler(0, policy as i32, &param) },
+        0,
+        "failed to set prio"
+    );
+}
