@@ -1,16 +1,62 @@
 use std::env::args;
 
+use cairo::Context;
 use gio::prelude::*;
 use gtk::prelude::*;
 use gtk::DrawingArea;
-
-use cairo::Context;
 use plotters::prelude::*;
 use plotters_cairo::CairoBackend;
 
 fn build_ui(app: &gtk::Application) {
-    drawable(app, 500, 500, |_, cr| {
-        let root = CairoBackend::new(cr, (500, 500))
+    // drawable(app, 500, 500, |_, cr| {
+    //     let root = CairoBackend::new(cr, (500, 500))
+    //         .unwrap()
+    //         .into_drawing_area();
+
+    //     root.fill(&WHITE).unwrap();
+
+    //     let mut chart = ChartBuilder::on(&root)
+    //         .x_label_area_size(35)
+    //         .y_label_area_size(40)
+    //         .margin(5)
+    //         .caption("Histogram Test", ("sans-serif", 50.0))
+    //         .build_cartesian_2d((0u32..10u32).into_segmented(), 0u32..10u32)
+    //         .unwrap();
+
+    //     chart
+    //         .configure_mesh()
+    //         .disable_x_mesh()
+    //         .bold_line_style(&WHITE.mix(0.3))
+    //         .y_desc("Count")
+    //         .x_desc("Bucket")
+    //         .axis_desc_style(("sans-serif", 15))
+    //         .draw()
+    //         .unwrap();
+
+    //     let data = [
+    //         0u32, 1, 1, 1, 4, 2, 5, 7, 8, 6, 4, 2, 1, 8, 3, 3, 3, 4, 4, 3, 3, 3,
+    //     ];
+
+    //     chart
+    //         .draw_series(
+    //             Histogram::vertical(&chart)
+    //                 .style(RED.mix(0.5).filled())
+    //                 .data(data.iter().map(|x: &u32| (*x, 1))),
+    //         )
+    //         .unwrap();
+
+    //     println!("Draw");
+
+    //     Inhibit(false)
+    // });
+
+    let window = gtk::ApplicationWindow::new(app);
+    let drawing_area = Box::new(DrawingArea::new)();
+
+    let (width, height) = window.get_size();
+
+    drawing_area.connect_draw(|_, cr| {
+        let root = CairoBackend::new(cr, (width as u32, height as u32))
             .unwrap()
             .into_drawing_area();
 
@@ -49,7 +95,26 @@ fn build_ui(app: &gtk::Application) {
         println!("Draw");
 
         Inhibit(false)
-    })
+    });
+
+    window.set_default_size(500, 500);
+
+    window.add(&drawing_area);
+
+    window.show_all();
+
+    // we are using a closure to capture the label (else we could also use a normal function)
+    let tick = move || {
+        println!("Tick");
+
+        drawing_area.queue_draw();
+
+        // we could return glib::Continue(false) to stop our clock after this tick
+        Continue(true)
+    };
+
+    // executes the closure once every second
+    glib::timeout_add_seconds_local(1, tick);
 }
 
 fn main() {
