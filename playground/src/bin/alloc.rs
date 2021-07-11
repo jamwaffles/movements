@@ -3,7 +3,7 @@
 //! Looks like `extern crate alloc` is required. If `#![no_std]` is left in, this code will fail to
 //! compile because no allocator could be found.
 
-#![no_std]
+// #![no_std]
 
 extern crate alloc;
 
