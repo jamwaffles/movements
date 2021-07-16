@@ -1,16 +1,24 @@
 [workspace]
 members = [
+    "realtime-test",
+    "playground",
     # "gcode-parser-old",
     # "gcode-validator",
     # "gcode-interpreter",
     # "pathviewer",
-    "realtime-test",
     # "streaming-gcode-parser",
     # "trajectory-planner",
-    "playground",
+    "interpreter",
+    "parser",
+    "common"
 ]
 
 # [patch.crates-io]
 # gcode-parser = { path = "gcode-parser-old" }
 # gcode-interpreter = { path = "gcode-interpreter" }
 # streaming-gcode-parser = { path = "streaming-gcode-parser" }
+
+[patch.crates-io]
+common = { path = "common" }
+interpreter = { path = "interpreter" }
+parser = { path = "parser" }
