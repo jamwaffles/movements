@@ -10,7 +10,8 @@ members = [
     # "trajectory-planner",
     "interpreter",
     "parser",
-    "common"
+    "common",
+    "planner"
 ]
 
 # [patch.crates-io]
