@@ -1,3 +1,5 @@
+pub mod one_d;
+
 #[cfg(test)]
 mod tests {
     #[test]
