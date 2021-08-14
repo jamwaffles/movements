@@ -15,6 +15,13 @@ struct State {
     start: Vertex,
     end: Vertex,
     limits: Limits,
+    vertical_scale: f64,
+}
+
+impl State {
+    fn make_segment(&self) -> Segment {
+        Segment::new(self.start, self.end, &self.limits)
+    }
 }
 
 impl Default for State {
@@ -32,6 +39,7 @@ impl Default for State {
                 acceleration: 5.0,
                 velocity: 1.0,
             },
+            vertical_scale: 40.0,
         }
     }
 }
@@ -55,25 +63,58 @@ fn build_ui(application: &gtk::Application) {
 
     let mut state = Rc::new(RefCell::new(State::default()));
 
-    let slider: Scale = builder.object("limits_velocity").expect("Velocity limit");
-    let adjustment1 = Adjustment::new(
-        state.borrow().limits.velocity.into(),
-        0.0,
-        2.0,
-        0.01,
-        0.05,
-        0.0,
-    );
-    slider.set_adjustment(&adjustment1);
+    {
+        let velocity_limit: Scale = builder.object("limits_velocity").expect("Velocity limit");
+        let velocity_adjustment = Adjustment::new(
+            state.borrow().limits.velocity.into(),
+            0.01,
+            5.0,
+            0.01,
+            0.05,
+            0.0,
+        );
+        velocity_limit.set_adjustment(&velocity_adjustment);
+        velocity_limit.connect_value_changed(
+            glib::clone!(@weak state, @weak drawing_area => move |scale| {
+                state.borrow_mut().limits.velocity = scale.value() as f32;
+                drawing_area.queue_draw();
+            }),
+        );
+    }
 
-    slider.connect_value_changed(
-        glib::clone!(@weak state, @weak drawing_area => move |scale| {
-            // value.set(scale.value());
-            state.borrow_mut().limits.velocity = scale.value() as f32;
+    {
+        let acceleration_limit: Scale = builder
+            .object("limits_acceleration")
+            .expect("acceleration limit");
+        let acceleration_adjustment = Adjustment::new(
+            state.borrow().limits.acceleration.into(),
+            0.01,
+            5.0,
+            0.01,
+            0.05,
+            0.0,
+        );
+        acceleration_limit.set_adjustment(&acceleration_adjustment);
+        acceleration_limit.connect_value_changed(
+            glib::clone!(@weak state, @weak drawing_area => move |scale| {
+                state.borrow_mut().limits.acceleration = scale.value() as f32;
+                drawing_area.queue_draw();
+            }),
+        );
+    }
 
-            drawing_area.queue_draw();
-        }),
-    );
+    {
+        let vertical_scale: Scale = builder.object("vertical_scale").expect("vertical_scale");
+        let vertical_scale_adjustment =
+            Adjustment::new(state.borrow().vertical_scale, 0.1, 200.0, 0.1, 0.5, 0.0);
+        vertical_scale.set_adjustment(&vertical_scale_adjustment);
+        vertical_scale.connect_value_changed(
+            glib::clone!(@weak state, @weak drawing_area => move |scale| {
+                state.borrow_mut().vertical_scale = scale.value();
+                drawing_area.queue_draw();
+            }),
+        );
+    }
 
     builder.connect_signals(move |_, handler_name| {
         // This is the one-time callback to register signals.
@@ -93,26 +134,62 @@ fn build_ui(application: &gtk::Application) {
     });
 
     drawing_area.connect_draw(move |drawing_area, cr| {
-        println!("Value {:?}", state.borrow().limits.velocity);
-
         let dimensions = drawing_area.allocation();
 
         let width = f64::from(dimensions.width);
         let height = f64::from(dimensions.height);
         // cr.scale(dimensions.width.into(), dimensions.height.into());
 
-        cr.set_source_rgb(250.0 / 255.0, 224.0 / 255.0, 55.0 / 255.0);
+        cr.set_source_rgb(255.0, 255.0, 255.0);
         cr.paint().expect("Invalid cairo surface state");
 
         cr.set_line_width(0.5);
-        cr.set_source_rgb(0.0, 0.0, 0.0);
 
-        cr.move_to(10.0, 10.0);
-        cr.line_to(
-            dimensions.width as f64 - 10.0,
-            10.0 + (f64::from(state.borrow().limits.velocity) * (height - 20.0)),
-        );
-        cr.stroke().expect("Invalid cairo surface state");
+        let total = width as u32;
+
+        let state = state.borrow();
+
+        let segment = state.make_segment();
+
+        let mid_y = height / 2.0;
+
+        let y_scale = state.vertical_scale;
+
+        // Position
+        {
+            cr.set_source_rgb(0.0, 0.0, 0.0);
+            cr.move_to(0.0, mid_y);
+            for x in 0..total {
+                let t = segment.duration() * x as f32 / total as f32;
+                let y_pos: f64 = mid_y + f64::from(segment.position(t)) * y_scale;
+                cr.line_to(x as f64, y_pos);
+            }
+            cr.stroke().expect("Invalid cairo surface state");
+        }
+
+        // Velocity
+        {
+            cr.set_source_rgb(1.0, 0.0, 0.0);
+            cr.move_to(0.0, mid_y);
+            for x in 0..total {
+                let t = segment.duration() * x as f32 / total as f32;
+                let y_pos: f64 = mid_y + f64::from(segment.velocity(t)) * y_scale;
+                cr.line_to(x as f64, y_pos);
+            }
+            cr.stroke().expect("Invalid cairo surface state");
+        }
+
+        // Acceleration
+        {
+            cr.set_source_rgb(0.0, 0.0, 1.0);
+            cr.move_to(0.0, mid_y);
+            for x in 0..total {
+                let t = segment.duration() * x as f32 / total as f32;
+                let y_pos: f64 = mid_y + f64::from(segment.acceleration(t)) * y_scale;
+                cr.line_to(x as f64, y_pos);
+            }
+            cr.stroke().expect("Invalid cairo surface state");
+        }
 
         Inhibit(false)
 
@@ -170,17 +247,3 @@ fn main() {
 
     application.run();
 }
-
-// pub fn drawable<F>(drawing_area: &gtk::DrawingArea, width: i32, height: i32, draw_fn: F)
-// where
-//     F: Fn(&DrawingArea, &Context) -> Inhibit + 'static,
-// {
-//     // let drawing_area = Box::new(DrawingArea::new)();
-
-//     drawing_area.connect_draw(draw_fn);
-
-//     // window.set_default_size(width, height);
-
-//     // window.add(&drawing_area);
-//     // window.show_all();
-// }
