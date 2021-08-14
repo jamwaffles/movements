@@ -40,6 +40,98 @@ pub struct Segment {
 }
 
 impl Segment {
+    pub fn new(start: Vertex, end: Vertex, limits: &Limits) -> Self {
+        // Position reached when decelerating from start velocity to full stop
+        let x_stop = {
+            let final_velocity = 0.0f32;
+
+            (final_velocity.powi(2) - start.velocity.powi(2)) / 2.0 * limits.acceleration
+        };
+
+        // Sign of cruising (general direction)
+        let sign = (end.position - x_stop).signum();
+
+        // Acceleration sign
+        let accel_t1 = limits.acceleration
+            * if start.velocity <= limits.velocity {
+                // Below velocity limit - accelerate
+                sign
+            } else {
+                // Too fast for current limit - decelerate. This will result in a double-deceleration
+                // profile.
+                -sign
+            };
+
+        // Deceleration
+        let accel_t3 = -limits.acceleration;
+
+        // Maximum cruise velocity
+        let mut cruise_velocity = limits.velocity;
+
+        // First phase accel/decel time
+        let mut delta_t1 = (cruise_velocity - start.velocity) / accel_t1;
+
+        // First phase displacement
+        let mut delta_x1 = p_2(delta_t1, 0.0, start.velocity, accel_t1);
+
+        // Third phase decel time
+        let mut delta_t3 = cruise_velocity / accel_t3.abs();
+
+        // Third phase displacement
+        let mut delta_x3 = p_2(delta_t3, 0.0, cruise_velocity, accel_t3);
+
+        let mut delta_t2 =
+            (end.position - (start.position + delta_x1 + delta_x3)) / cruise_velocity;
+
+        // Not enough space/time to create a trapezoidal profile. We'll reduce the maximum velocity and
+        // recalculate everything to form a "wedge" shaped profile.
+        if delta_t2 < 0.0 {
+            // New limit for cruise velocity
+            cruise_velocity = f32::sqrt(
+                accel_t1 * (end.position - start.position) + (0.5 * start.velocity.powi(2)),
+            );
+
+            delta_t2 = 0.0;
+
+            // First phase accel/decel time
+            delta_t1 = (cruise_velocity - start.velocity) / accel_t1;
+
+            // First phase displacement
+            delta_x1 = p_2(delta_t1, 0.0, start.velocity, accel_t1);
+
+            // Third phase decel time
+            delta_t3 = cruise_velocity / accel_t3.abs();
+
+            // Third phase displacement
+            delta_x3 = p_2(delta_t3, 0.0, cruise_velocity, accel_t3);
+        }
+
+        // Cruise displacement (will be 0 if a wedge shaped profile is formed)
+        let delta_x2 = cruise_velocity * delta_t2;
+
+        // Total segment time
+        let t3 = delta_t1 + delta_t2 + delta_t3;
+
+        Self {
+            delta_x1,
+            delta_x2,
+            delta_x3,
+
+            delta_t1,
+            delta_t2,
+            delta_t3,
+
+            time: t3,
+
+            start,
+            end,
+
+            acceleration: accel_t1,
+            deceleration: accel_t3,
+            cruise_velocity,
+        }
+    }
+
     pub fn position(&self, t: f32) -> f32 {
         let t1 = 0.0..self.delta_t1;
         let t2 = self.delta_t1..self.delta_t1 + self.delta_t2;
@@ -153,93 +245,7 @@ fn main() {
         velocity: 1.0,
     };
 
-    // Position reached when decelerating from start velocity to full stop
-    let x_stop = {
-        let final_velocity = 0.0f32;
-
-        (final_velocity.powi(2) - start.velocity.powi(2)) / 2.0 * limits.acceleration
-    };
-
-    // Sign of cruising (general direction)
-    let sign = (end.position - x_stop).signum();
-
-    // Acceleration sign
-    let accel_t1 = limits.acceleration
-        * if start.velocity <= limits.velocity {
-            // Below velocity limit - accelerate
-            sign
-        } else {
-            // Too fast for current limit - decelerate. This will result in a double-deceleration
-            // profile.
-            -sign
-        };
-
-    // Deceleration
-    let accel_t3 = -limits.acceleration;
-
-    // Maximum cruise velocity
-    let mut cruise_velocity = limits.velocity;
-
-    // First phase accel/decel time
-    let mut delta_t1 = (cruise_velocity - start.velocity) / accel_t1;
-
-    // First phase displacement
-    let mut delta_x1 = p_2(delta_t1, 0.0, start.velocity, accel_t1);
-
-    // Third phase decel time
-    let mut delta_t3 = cruise_velocity / accel_t3.abs();
-
-    // Third phase displacement
-    let mut delta_x3 = p_2(delta_t3, 0.0, cruise_velocity, accel_t3);
-
-    let mut delta_t2 = (end.position - (start.position + delta_x1 + delta_x3)) / cruise_velocity;
-
-    // Not enough space/time to create a trapezoidal profile. We'll reduce the maximum velocity and
-    // recalculate everything to form a "wedge" shaped profile.
-    if delta_t2 < 0.0 {
-        // New limit for cruise velocity
-        cruise_velocity =
-            f32::sqrt(accel_t1 * (end.position - start.position) + (0.5 * start.velocity.powi(2)));
-
-        delta_t2 = 0.0;
-
-        // First phase accel/decel time
-        delta_t1 = (cruise_velocity - start.velocity) / accel_t1;
-
-        // First phase displacement
-        delta_x1 = p_2(delta_t1, 0.0, start.velocity, accel_t1);
-
-        // Third phase decel time
-        delta_t3 = cruise_velocity / accel_t3.abs();
-
-        // Third phase displacement
-        delta_x3 = p_2(delta_t3, 0.0, cruise_velocity, accel_t3);
-    }
-
-    // Cruise displacement (will be 0 if a wedge shaped profile is formed)
-    let delta_x2 = cruise_velocity * delta_t2;
-
-    // Total segment time
-    let t3 = delta_t1 + delta_t2 + delta_t3;
-
-    let segment = Segment {
-        delta_x1,
-        delta_x2,
-        delta_x3,
-
-        delta_t1,
-        delta_t2,
-        delta_t3,
-
-        time: t3,
-
-        start,
-        end,
-
-        acceleration: accel_t1,
-        deceleration: accel_t3,
-        cruise_velocity,
-    };
+    let segment = Segment::new(start, end, &limits);
 
     dbg!(segment);
 
