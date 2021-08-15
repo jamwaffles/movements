@@ -78,14 +78,6 @@ fn build_ui(application: &gtk::Application) {
     let window: ApplicationWindow = builder.object("window1").expect("Couldn't get window1");
     window.set_application(Some(application));
 
-    let dialog: MessageDialog = builder
-        .object("messagedialog1")
-        .expect("Couldn't get messagedialog1");
-    dialog.connect_delete_event(|dialog, _| {
-        dialog.hide();
-        gtk::Inhibit(true)
-    });
-
     let drawing_area: DrawingArea = builder.object("canvas1").expect("Couldn't find canvas");
 
     let mut state = Rc::new(RefCell::new(State::default()));
@@ -159,6 +151,82 @@ fn build_ui(application: &gtk::Application) {
     }
 
     {
+        let start_position: Scale = builder.object("start_position").unwrap();
+        let start_position_adjustment = Adjustment::new(
+            state.borrow().start.position.into(),
+            0.01,
+            5.0,
+            0.01,
+            0.05,
+            0.0,
+        );
+        start_position.set_adjustment(&start_position_adjustment);
+        start_position.connect_value_changed(
+            glib::clone!(@weak state, @weak drawing_area => move |scale| {
+                state.borrow_mut().start.position = scale.value() as f32;
+                drawing_area.queue_draw();
+            }),
+        );
+    }
+
+    {
+        let start_velocity: Scale = builder.object("start_velocity").unwrap();
+        let start_velocity_adjustment = Adjustment::new(
+            state.borrow().start.velocity.into(),
+            0.01,
+            5.0,
+            0.01,
+            0.05,
+            0.0,
+        );
+        start_velocity.set_adjustment(&start_velocity_adjustment);
+        start_velocity.connect_value_changed(
+            glib::clone!(@weak state, @weak drawing_area => move |scale| {
+                state.borrow_mut().start.velocity = scale.value() as f32;
+                drawing_area.queue_draw();
+            }),
+        );
+    }
+
+    {
+        let end_position: Scale = builder.object("end_position").unwrap();
+        let end_position_adjustment = Adjustment::new(
+            state.borrow().end.position.into(),
+            0.01,
+            5.0,
+            0.01,
+            0.05,
+            0.0,
+        );
+        end_position.set_adjustment(&end_position_adjustment);
+        end_position.connect_value_changed(
+            glib::clone!(@weak state, @weak drawing_area => move |scale| {
+                state.borrow_mut().end.position = scale.value() as f32;
+                drawing_area.queue_draw();
+            }),
+        );
+    }
+
+    {
+        let end_velocity: Scale = builder.object("end_velocity").unwrap();
+        let end_velocity_adjustment = Adjustment::new(
+            state.borrow().end.velocity.into(),
+            0.01,
+            5.0,
+            0.01,
+            0.05,
+            0.0,
+        );
+        end_velocity.set_adjustment(&end_velocity_adjustment);
+        end_velocity.connect_value_changed(
+            glib::clone!(@weak state, @weak drawing_area => move |scale| {
+                state.borrow_mut().end.velocity = scale.value() as f32;
+                drawing_area.queue_draw();
+            }),
+        );
+    }
+
+    {
         let vertical_scale: Scale = builder.object("vertical_scale").expect("vertical_scale");
         let vertical_scale_adjustment =
             Adjustment::new(state.borrow().vertical_scale, 0.1, 200.0, 0.1, 0.5, 0.0);
@@ -195,7 +263,33 @@ fn build_ui(application: &gtk::Application) {
             let y_scale = state.vertical_scale;
 
             // Vertical cursor line
-            if let Some((cursor_x, _cursor_y)) = state.cursor{
+            if let Some((cursor_x, _cursor_y)) = state.cursor {
+                // Debug output
+                {
+                    let font_size = 14.0;
+                    let x_base = 5.0;
+                    let y_base = 5.0 + font_size;
+
+                    let t = segment.duration() * cursor_x as f32 / width as f32;
+
+                    cr.set_source_rgb(0.0, 0.0, 0.0);
+                    cr.select_font_face("monospace", FontSlant::Normal, FontWeight::Normal);
+                    cr.set_font_size(14.0);
+                    cr.move_to(x_base, y_base);
+                    cr.show_text(&format!("Duration     {:+04.2}", segment.duration())).unwrap();
+                    cr.move_to(x_base, y_base + font_size);
+                    cr.set_source_rgb(0.0, 0.0, 0.0);
+                    cr.show_text(&format!("Position     {:+04.2}", segment.position(t))).unwrap();
+
+                    cr.move_to(x_base, y_base + font_size * 2.0);
+                    cr.set_source_rgb(1.0, 0.0, 0.0);
+                    cr.show_text(&format!("Velocity     {:+04.2}", segment.velocity(t))).unwrap();
+
+                    cr.move_to(x_base, y_base + font_size * 3.0);
+                    cr.set_source_rgb(0.0, 0.0, 1.0);
+                    cr.show_text(&format!("Acceleration {:+04.2}", segment.acceleration(t))).unwrap();
+                }
+
                 cr.set_source_rgb(0.5, 0.5, 0.5);
 
                 cr.move_to(cursor_x, 0.0);
@@ -211,7 +305,7 @@ fn build_ui(application: &gtk::Application) {
                 for x in 0..total {
                     let t = segment.duration() * x as f32 / total as f32;
                     let y_pos: f64 = mid_y + f64::from(segment.position(t)) * y_scale;
-                    cr.line_to(x as f64, y_pos);
+                    cr.line_to(x as f64, height - y_pos);
                 }
                 cr.stroke().expect("Invalid cairo surface state");
             }
@@ -223,7 +317,7 @@ fn build_ui(application: &gtk::Application) {
                 for x in 0..total {
                     let t = segment.duration() * x as f32 / total as f32;
                     let y_pos: f64 = mid_y + f64::from(segment.velocity(t)) * y_scale;
-                    cr.line_to(x as f64, y_pos);
+                    cr.line_to(x as f64, height - y_pos);
                 }
                 cr.stroke().expect("Invalid cairo surface state");
             }
@@ -235,7 +329,7 @@ fn build_ui(application: &gtk::Application) {
                 for x in 0..total {
                     let t = segment.duration() * x as f32 / total as f32;
                     let y_pos: f64 = mid_y + f64::from(segment.acceleration(t)) * y_scale;
-                    cr.line_to(x as f64, y_pos);
+                    cr.line_to(x as f64, height - y_pos);
                 }
                 cr.stroke().expect("Invalid cairo surface state");
             }
