@@ -171,23 +171,6 @@ fn build_ui(application: &gtk::Application) {
         );
     }
 
-    // builder.connect_signals(move |_, handler_name| {
-    //     // This is the one-time callback to register signals.
-    //     // Here we map each handler name to its handler.
-
-    //     if handler_name == "button1_clicked" {
-    //         // Return the signal handler.
-    //         Box::new(
-    //             glib::clone!(@weak dialog => @default-return None, move |_| {
-    //                 dialog.show_all();
-    //                 None
-    //             }),
-    //         )
-    //     } else {
-    //         panic!("Unknown handler name {}", handler_name)
-    //     }
-    // });
-
     drawing_area.connect_draw(
         glib::clone!(@strong state => @default-panic, move |drawing_area, cr| {
             let dimensions = drawing_area.allocation();
@@ -259,45 +242,7 @@ fn build_ui(application: &gtk::Application) {
 
             Inhibit(false)
 
-            // // border
-            // cr.set_source_rgb(0.3, 0.3, 0.3);
-            // cr.rectangle(0.0, 0.0, 1.0, 1.0);
-            // cr.stroke().expect("Invalid cairo surface state");
 
-            // cr.set_line_width(0.03);
-
-            // // draw circle
-            // cr.arc(0.5, 0.5, 0.4, 0.0, PI * 2.);
-            // cr.stroke().expect("Invalid cairo surface state");
-
-            // // mouth
-            // let mouth_top = 0.68;
-            // let mouth_width = 0.38;
-
-            // let mouth_dx = 0.10;
-            // let mouth_dy = 0.10;
-
-            // cr.move_to(0.50 - mouth_width / 2.0, mouth_top);
-            // cr.curve_to(
-            //     0.50 - mouth_dx,
-            //     mouth_top + mouth_dy,
-            //     0.50 + mouth_dx,
-            //     mouth_top + mouth_dy,
-            //     0.50 + mouth_width / 2.0,
-            //     mouth_top,
-            // );
-
-            // println!("Extents: {:?}", cr.fill_extents());
-
-            // cr.stroke().expect("Invalid cairo surface state");
-
-            // let eye_y = 0.38;
-            // let eye_dx = 0.15;
-            // cr.arc(0.5 - eye_dx, eye_y, 0.05, 0.0, PI * 2.);
-            // cr.fill().expect("Invalid cairo surface state");
-
-            // cr.arc(0.5 + eye_dx, eye_y, 0.05, 0.0, PI * 2.);
-            // cr.fill().expect("Invalid cairo surface state");
         }),
     );
 
