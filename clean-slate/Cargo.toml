@@ -1,0 +1,17 @@
+[package]
+name = "clean-slate"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+criterion = { version = "0.3.5", features = [ "html_reports" ] }
+insta = "1.7.2"
+nom = { version = "7.0.0", default-features = false }
+nom-supreme = "0.6.0"
+nom_locate = { version = "4.0.0", default-features = false }
+
+[[bench]]
+name = "word_const_fn"
+harness = false
