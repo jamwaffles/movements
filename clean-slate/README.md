@@ -8,6 +8,15 @@ Findings
 - API is elegant
 - Won't work with variables and expressions, but would do well in the fast path as part of an `alt()` list
 
+# Experiment: parse `G0` and `G4 Pn` dwell
+
+- [ ] Parse these two items into their two modal group enums, `Motion` (group 1) and `NonModal` (group 0)
+- [ ] Collect the spans in the input for where they exist
+
+Findings
+
+-
+
 # Stage 1 Goals
 
 - [ ] Parser itself must be no_std by default
