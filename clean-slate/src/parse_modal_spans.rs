@@ -69,16 +69,13 @@ impl NonModal {
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
     use super::*;
 
-    #[cfg(feature = "std")]
     #[test]
     fn snapshot_motion() {
         insta::assert_debug_snapshot!(Motion::parse("G0".into()));
     }
 
-    #[cfg(feature = "std")]
     #[test]
     fn snapshot_non_modal() {
         insta::assert_debug_snapshot!(NonModal::parse("G4 P0.1".into()));

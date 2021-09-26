@@ -25,7 +25,7 @@ Findings
 
 # Stage 1 Goals
 
-- [ ] Parser itself must be no_std by default
+- [-] ~Parser itself must be no_std by default~
 - [ ] Parse only these tokens (and valid NGC274 variants):
   - [ ] `G0` rapid
   - [ ] `G4 Pn` dwell
