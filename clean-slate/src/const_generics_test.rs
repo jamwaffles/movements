@@ -1,5 +1,3 @@
-// #![cfg_attr(not(test), no_std)]
-
 use nom::{
     character::complete::{anychar, digit1, space0},
     combinator::{map_opt, verify},

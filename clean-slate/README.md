@@ -1,4 +1,4 @@
-# Stage 0 Goals
+# Experiment: use const generics to parse fixed gcodes
 
 - [x] Investigate a general purpose word parser using const fns
 
