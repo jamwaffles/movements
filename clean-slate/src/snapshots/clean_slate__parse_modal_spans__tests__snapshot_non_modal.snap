@@ -1,0 +1,32 @@
+---
+source: clean-slate/src/parse_modal_spans.rs
+expression: "NonModal::parse(\"G4 P0.1\".into())"
+
+---
+Ok(
+    (
+        LocatedSpan {
+            offset: 7,
+            line: 1,
+            fragment: "",
+            extra: (),
+        },
+        Spanned {
+            start: LocatedSpan {
+                offset: 0,
+                line: 1,
+                fragment: "",
+                extra: (),
+            },
+            end: LocatedSpan {
+                offset: 7,
+                line: 1,
+                fragment: "",
+                extra: (),
+            },
+            item: Dwell {
+                duration: 100ms,
+            },
+        },
+    ),
+)

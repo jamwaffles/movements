@@ -15,7 +15,13 @@ Findings
 
 Findings
 
--
+- `insta` needs `std`
+- `LocatedSpan`s can be created from `&str`s with `.into()`
+- `cargo-insta` must be installed to use `insta`
+
+# Experiment: add comment parsing to previous experiment
+
+- [ ] Parse comments and represent them in the `Word` struct.
 
 # Stage 1 Goals
 

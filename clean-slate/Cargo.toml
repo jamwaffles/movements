@@ -15,3 +15,11 @@ nom_locate = { version = "4.0.0", default-features = false }
 [[bench]]
 name = "word_const_fn"
 harness = false
+
+[[bench]]
+name = "word_const_fn_spans"
+harness = false
+
+[features]
+default = []
+std = []

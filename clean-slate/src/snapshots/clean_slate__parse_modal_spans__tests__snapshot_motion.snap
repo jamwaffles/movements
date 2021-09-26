@@ -1,0 +1,30 @@
+---
+source: clean-slate/src/parse_modal_spans.rs
+expression: "Motion::parse(\"G0\".into())"
+
+---
+Ok(
+    (
+        LocatedSpan {
+            offset: 2,
+            line: 1,
+            fragment: "",
+            extra: (),
+        },
+        Spanned {
+            start: LocatedSpan {
+                offset: 0,
+                line: 1,
+                fragment: "",
+                extra: (),
+            },
+            end: LocatedSpan {
+                offset: 2,
+                line: 1,
+                fragment: "",
+                extra: (),
+            },
+            item: Rapid,
+        },
+    ),
+)
