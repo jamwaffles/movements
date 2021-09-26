@@ -1,0 +1,16 @@
+---
+source: clean-slate/src/parse_modal.rs
+expression: "Motion::parse(\"G0\".into())"
+
+---
+Ok(
+    (
+        LocatedSpan {
+            offset: 2,
+            line: 1,
+            fragment: "",
+            extra: (),
+        },
+        Rapid,
+    ),
+)

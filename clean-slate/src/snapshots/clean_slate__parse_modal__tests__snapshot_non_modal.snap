@@ -1,0 +1,18 @@
+---
+source: clean-slate/src/parse_modal.rs
+expression: "NonModal::parse(\"G4 P0.1\".into())"
+
+---
+Ok(
+    (
+        LocatedSpan {
+            offset: 7,
+            line: 1,
+            fragment: "",
+            extra: (),
+        },
+        Dwell {
+            duration: 100ms,
+        },
+    ),
+)

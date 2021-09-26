@@ -1,0 +1,19 @@
+---
+source: clean-slate/src/spanned_word.rs
+expression: "Comment::parse(\"(inline comment) G0\".into())"
+
+---
+Ok(
+    (
+        LocatedSpan {
+            offset: 16,
+            line: 1,
+            fragment: " G0",
+            extra: (),
+        },
+        Comment {
+            kind: Inline,
+            comment: "inline comment",
+        },
+    ),
+)

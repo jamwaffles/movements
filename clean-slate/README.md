@@ -10,8 +10,8 @@ Findings
 
 # Experiment: parse `G0` and `G4 Pn` dwell
 
-- [ ] Parse these two items into their two modal group enums, `Motion` (group 1) and `NonModal` (group 0)
-- [ ] Collect the spans in the input for where they exist
+- [x] Parse these two items into their two modal group enums, `Motion` (group 1) and `NonModal` (group 0)
+- [x] Collect the spans in the input for where they exist
 
 Findings
 
@@ -21,7 +21,16 @@ Findings
 
 # Experiment: add comment parsing to previous experiment
 
-- [ ] Parse comments and represent them in the `Word` struct.
+- [x] Parse comments and represent them in the `Word` struct.
+
+# Experiment: extract block/word parsing into a no_std core and provide another crate to do span matching
+
+> Just stick to what _I_ need - I don't mind std!
+
+- [ ] Make input type generic over `LocatedSpan` or `&str`.
+- [ ] A different approach would be feature flagging as I need to turn `String` comments on and off. Ugh.
+
+# Experiment: replace nom_locate with something custom and the `consumed()` function
 
 # Stage 1 Goals
 

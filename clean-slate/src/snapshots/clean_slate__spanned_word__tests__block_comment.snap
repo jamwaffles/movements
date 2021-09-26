@@ -1,0 +1,19 @@
+---
+source: clean-slate/src/spanned_word.rs
+expression: "Comment::parse(\"; absolute magic\".into())"
+
+---
+Ok(
+    (
+        LocatedSpan {
+            offset: 16,
+            line: 1,
+            fragment: "",
+            extra: (),
+        },
+        Comment {
+            kind: Block,
+            comment: " absolute magic",
+        },
+    ),
+)

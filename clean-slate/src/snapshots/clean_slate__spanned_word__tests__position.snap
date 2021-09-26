@@ -1,0 +1,34 @@
+---
+source: clean-slate/src/spanned_word.rs
+expression: "Word::parse(\"G4 P0.1\".into())"
+
+---
+Ok(
+    (
+        LocatedSpan {
+            offset: 7,
+            line: 1,
+            fragment: "",
+            extra: (),
+        },
+        Spanned {
+            start: LocatedSpan {
+                offset: 0,
+                line: 1,
+                fragment: "",
+                extra: (),
+            },
+            end: LocatedSpan {
+                offset: 7,
+                line: 1,
+                fragment: "",
+                extra: (),
+            },
+            item: NonModal(
+                Dwell {
+                    duration: 100ms,
+                },
+            ),
+        },
+    ),
+)
