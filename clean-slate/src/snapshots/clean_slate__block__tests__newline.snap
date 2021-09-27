@@ -1,0 +1,75 @@
+---
+source: clean-slate/src/block.rs
+expression: "Block::parse(\"G0 G4 P2.5 ; line comment\".into())"
+
+---
+Ok(
+    (
+        LocatedSpan {
+            offset: 25,
+            line: 1,
+            fragment: "",
+            extra: (),
+        },
+        Block {
+            words: [
+                Spanned {
+                    start: LocatedSpan {
+                        offset: 0,
+                        line: 1,
+                        fragment: "",
+                        extra: (),
+                    },
+                    end: LocatedSpan {
+                        offset: 2,
+                        line: 1,
+                        fragment: "",
+                        extra: (),
+                    },
+                    item: Motion(
+                        Rapid,
+                    ),
+                },
+                Spanned {
+                    start: LocatedSpan {
+                        offset: 3,
+                        line: 1,
+                        fragment: "",
+                        extra: (),
+                    },
+                    end: LocatedSpan {
+                        offset: 10,
+                        line: 1,
+                        fragment: "",
+                        extra: (),
+                    },
+                    item: NonModal(
+                        Dwell {
+                            duration: 2.5s,
+                        },
+                    ),
+                },
+                Spanned {
+                    start: LocatedSpan {
+                        offset: 11,
+                        line: 1,
+                        fragment: "",
+                        extra: (),
+                    },
+                    end: LocatedSpan {
+                        offset: 25,
+                        line: 1,
+                        fragment: "",
+                        extra: (),
+                    },
+                    item: Comment(
+                        Comment {
+                            kind: Block,
+                            comment: " line comment",
+                        },
+                    ),
+                },
+            ],
+        },
+    ),
+)
