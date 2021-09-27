@@ -1,3 +1,7 @@
+//! Test methods to prove const generics approach.
+//!
+//! Superceded by [`const_generics_spanned`].
+
 use nom::{
     character::complete::{anychar, digit1, space0},
     combinator::{map_opt, verify},

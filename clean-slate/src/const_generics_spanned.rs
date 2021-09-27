@@ -1,4 +1,5 @@
-use crate::parse_modal_spans::Span;
+//! Functions to parse words and literals using `Span`s.
+
 use nom::{
     character::complete::{anychar, digit1, space0},
     combinator::{map_opt, verify},
@@ -6,6 +7,8 @@ use nom::{
     sequence::{preceded, separated_pair},
     IResult, ParseTo,
 };
+
+use crate::spanned_word::Span;
 
 pub fn recognise_word<const C: char, const N: u8>(i: Span) -> IResult<Span, ()> {
     let (i, _letter) = verify(anychar, |c| c.eq_ignore_ascii_case(&C))(i)?;
