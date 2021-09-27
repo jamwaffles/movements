@@ -12,7 +12,7 @@ pub struct Block<'a> {
 // TODO: Trait?
 impl<'a> Block<'a> {
     pub fn parse(i: Span<'a>) -> IResult<Span, Self> {
-        let (i, words) = many0(preceded(space0, Word::parse))(i)?;
+        let (i, words) = many0(preceded(space0, Word::parse_spanned))(i)?;
 
         Ok((i, Self { words }))
     }

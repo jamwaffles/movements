@@ -56,12 +56,19 @@ pub enum Word {
 
 // TODO: Trait?
 impl Word {
-    pub fn parse(i: Span) -> IResult<Span, Spanned<Self>> {
-        spanned(alt((
+    pub fn parse(i: Span) -> IResult<Span, Self> {
+        alt((
             map(Comment::parse, Self::Comment),
             map(Motion::parse, Self::Motion),
             map(NonModal::parse, Self::NonModal),
-        )))(i)
+        ))(i)
+    }
+}
+
+// TODO: Trait?
+impl Word {
+    pub fn parse_spanned(i: Span) -> IResult<Span, Spanned<Self>> {
+        spanned(Self::parse)(i)
     }
 }
 

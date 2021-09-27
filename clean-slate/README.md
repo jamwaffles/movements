@@ -35,13 +35,13 @@ Findings
 # Stage 1 Goals
 
 - [-] ~Parser itself must be no_std by default~
-- [ ] Parse only these tokens (and valid NGC274 variants):
-  - [ ] `G0` rapid
-  - [ ] `G4 Pn` dwell
-- [ ] Expose functions to parse:
-  - [ ] A single word
-  - [ ] A block (line) of words returned as an iterator
-  - [ ] A program, returned as an iterator of blocks
+- [x] Parse only these tokens (and valid NGC274 variants):
+  - [x] `G0` rapid
+  - [x] `G4 Pn` dwell
+- [x] Expose functions to parse:
+  - [x] A single word
+  - [x] A block (line) of words
+  - [ ] A program
 - [ ] Use nom_locate's `LocatedSpan` everywhere, even if only parsing a block
 - [ ] Swappable error type
   - [ ] Parser can be no_std if desired, using Nom's builtin error type
