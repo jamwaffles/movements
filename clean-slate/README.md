@@ -32,6 +32,8 @@ Findings
 
 # Experiment: replace nom_locate with something custom and the `consumed()` function
 
+# Experiment: use nom_supreme's error tree
+
 # Stage 1 Goals
 
 - [-] ~Parser itself must be no_std by default~
@@ -41,9 +43,9 @@ Findings
 - [x] Expose functions to parse:
   - [x] A single word
   - [x] A block (line) of words
-  - [ ] A program
-- [ ] Use nom_locate's `LocatedSpan` everywhere, even if only parsing a block
-- [ ] Swappable error type
-  - [ ] Parser can be no_std if desired, using Nom's builtin error type
-  - [ ] If in a std environment, nom_supreme's ErrorTree can be used to give nicer output
-- [ ] Tests use `insta` to assert against a parsed tree
+  - [x] A program
+- [x] Use nom_locate's `LocatedSpan` everywhere, even if only parsing a block
+- [-] ~Swappable error type~
+  - [-] ~Parser can be no_std if desired, using Nom's builtin error type-
+  - [-] ~If in a std environment, nom_supreme's ErrorTree can be used to give nicer output-
+- [x] Tests use `insta` to assert against a parsed tree

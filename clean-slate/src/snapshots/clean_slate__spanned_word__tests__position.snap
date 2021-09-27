@@ -11,24 +11,10 @@ Ok(
             fragment: "",
             extra: (),
         },
-        Spanned {
-            start: LocatedSpan {
-                offset: 0,
-                line: 1,
-                fragment: "",
-                extra: (),
+        NonModal(
+            Dwell {
+                duration: 100ms,
             },
-            end: LocatedSpan {
-                offset: 7,
-                line: 1,
-                fragment: "",
-                extra: (),
-            },
-            item: NonModal(
-                Dwell {
-                    duration: 100ms,
-                },
-            ),
-        },
+        ),
     ),
 )

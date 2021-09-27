@@ -3,4 +3,5 @@
 pub mod block;
 pub mod const_generics_spanned;
 pub mod const_generics_test;
+pub mod program;
 pub mod spanned_word;

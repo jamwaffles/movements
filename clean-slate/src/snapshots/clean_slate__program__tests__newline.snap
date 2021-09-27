@@ -1,0 +1,132 @@
+---
+source: clean-slate/src/program.rs
+expression: "Program::parse(program.into())"
+
+---
+Ok(
+    (
+        LocatedSpan {
+            offset: 58,
+            line: 5,
+            fragment: "",
+            extra: (),
+        },
+        Program {
+            blocks: [
+                Block {
+                    words: [
+                        Spanned {
+                            start: LocatedSpan {
+                                offset: 0,
+                                line: 1,
+                                fragment: "",
+                                extra: (),
+                            },
+                            end: LocatedSpan {
+                                offset: 7,
+                                line: 1,
+                                fragment: "",
+                                extra: (),
+                            },
+                            item: Comment(
+                                Comment {
+                                    kind: Inline,
+                                    comment: "begin",
+                                },
+                            ),
+                        },
+                    ],
+                },
+                Block {
+                    words: [
+                        Spanned {
+                            start: LocatedSpan {
+                                offset: 16,
+                                line: 2,
+                                fragment: "",
+                                extra: (),
+                            },
+                            end: LocatedSpan {
+                                offset: 18,
+                                line: 2,
+                                fragment: "",
+                                extra: (),
+                            },
+                            item: Motion(
+                                Rapid,
+                            ),
+                        },
+                    ],
+                },
+                Block {
+                    words: [
+                        Spanned {
+                            start: LocatedSpan {
+                                offset: 27,
+                                line: 3,
+                                fragment: "",
+                                extra: (),
+                            },
+                            end: LocatedSpan {
+                                offset: 34,
+                                line: 3,
+                                fragment: "",
+                                extra: (),
+                            },
+                            item: NonModal(
+                                Dwell {
+                                    duration: 2.5s,
+                                },
+                            ),
+                        },
+                    ],
+                },
+                Block {
+                    words: [
+                        Spanned {
+                            start: LocatedSpan {
+                                offset: 43,
+                                line: 4,
+                                fragment: "",
+                                extra: (),
+                            },
+                            end: LocatedSpan {
+                                offset: 45,
+                                line: 4,
+                                fragment: "",
+                                extra: (),
+                            },
+                            item: Motion(
+                                Rapid,
+                            ),
+                        },
+                    ],
+                },
+                Block {
+                    words: [
+                        Spanned {
+                            start: LocatedSpan {
+                                offset: 54,
+                                line: 5,
+                                fragment: "",
+                                extra: (),
+                            },
+                            end: LocatedSpan {
+                                offset: 58,
+                                line: 5,
+                                fragment: "",
+                                extra: (),
+                            },
+                            item: Comment(
+                                Comment {
+                                    kind: Block,
+                                    comment: "end",
+                                },
+                            ),
+                        },
+                    ],
+                },
+            ],
+        },
+    ),
+)
