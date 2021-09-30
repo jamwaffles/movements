@@ -2,23 +2,22 @@
 //!
 //! Also contains the [`Spanned`] struct to wrap an item with its position in the input.
 
-use crate::{
-    const_generics_spanned::{literal, recognise_word},
-    Span,
-};
+use crate::const_generics_spanned::{literal, recognise_word};
 use core::time::Duration;
 use nom::{
     branch::alt,
     bytes::complete::take_until,
     character::complete::anychar,
     combinator::map,
-    error::{context, ContextError, ParseError},
     multi::many0,
     sequence::{delimited, preceded},
     IResult,
 };
 use nom::{character::complete::space0, sequence::separated_pair};
 use nom_locate::position;
+use nom_locate::LocatedSpan;
+
+pub type Span<'a> = LocatedSpan<&'a str>;
 
 /// A parsed word with its input position.
 #[derive(Debug, PartialEq)]
@@ -28,22 +27,19 @@ pub struct Spanned<'a, T> {
     pub item: T,
 }
 
-// fn spanned<'a, E, T>(
-//     mut inner: impl FnMut(Span<'a>) -> IResult<Span<'a>, T>,
-// ) -> impl FnMut(Span<'a>) -> IResult<Span, Spanned<'a, T>>
-// where
-//     E: ParseError<Span<'a>> + ContextError<Span<'a>>,
-// {
-//     move |i: Span<'a>| {
-//         let (i, start) = position(i)?;
+pub fn spanned<'a, T>(
+    mut inner: impl FnMut(Span<'a>) -> IResult<Span<'a>, T>,
+) -> impl FnMut(Span<'a>) -> IResult<Span, Spanned<'a, T>> {
+    move |i: Span<'a>| {
+        let (i, start) = position(i)?;
 
-//         let (i, item) = inner(i)?;
+        let (i, item) = inner(i)?;
 
-//         let (i, end) = position(i)?;
+        let (i, end) = position(i)?;
 
-//         Ok((i, Spanned { start, end, item }))
-//     }
-// }
+        Ok((i, Spanned { start, end, item }))
+    }
+}
 
 #[derive(Debug)]
 pub enum Word {
@@ -60,33 +56,19 @@ pub enum Word {
 
 // TODO: Trait?
 impl Word {
-    pub fn parse<'a, E>(i: Span<'a>) -> IResult<Span, Self, E>
-    where
-        E: ParseError<Span<'a>> + ContextError<Span<'a>>,
-    {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
-            context("comment", map(Comment::parse, Self::Comment)),
-            map(Motion::parse::<'a, E>, Self::Motion),
-            map(NonModal::parse::<'a, E>, Self::NonModal),
+            map(Comment::parse, Self::Comment),
+            map(Motion::parse, Self::Motion),
+            map(NonModal::parse, Self::NonModal),
         ))(i)
     }
 }
 
 // TODO: Trait?
 impl Word {
-    pub fn parse_spanned<'a, E>(i: Span<'a>) -> IResult<Span, Spanned<Self>, E>
-    where
-        E: ParseError<Span<'a>> + ContextError<Span<'a>>,
-    {
-        // spanned(Self::parse::<'a, E>)(i)
-
-        let (i, start) = position(i)?;
-
-        let (i, item) = Self::parse::<'a, E>(i)?;
-
-        let (i, end) = position(i)?;
-
-        Ok((i, Spanned { start, end, item }))
+    pub fn parse_spanned(i: Span) -> IResult<Span, Spanned<Self>> {
+        spanned(Self::parse)(i)
     }
 }
 
@@ -104,10 +86,7 @@ pub struct Comment {
 
 // TODO: Trait?
 impl Comment {
-    pub fn parse<'a, E>(i: Span<'a>) -> IResult<Span, Self, E>
-    where
-        E: ParseError<Span<'a>> + ContextError<Span<'a>>,
-    {
+    pub fn parse(i: Span) -> IResult<Span, Self> {
         alt((
             map(
                 delimited(
@@ -144,11 +123,8 @@ pub enum Motion {
 
 // TODO: Trait?
 impl Motion {
-    pub fn parse<'a, E>(i: Span<'a>) -> IResult<Span, Self, E>
-    where
-        E: ParseError<Span<'a>> + ContextError<Span<'a>>,
-    {
-        map(recognise_word::<'a, E, 'G', 0>, |_| Self::Rapid)(i)
+    pub fn parse(i: Span) -> IResult<Span, Self> {
+        map(recognise_word::<'G', 0>, |_| Self::Rapid)(i)
     }
 }
 
@@ -161,22 +137,12 @@ pub enum NonModal {
 
 // TODO: Trait?
 impl NonModal {
-    pub fn parse<'a, E>(i: Span<'a>) -> IResult<Span, Self, E>
-    where
-        E: ParseError<Span<'a>> + ContextError<Span<'a>>,
-    {
-        context(
-            "dwell",
-            map(
-                separated_pair(
-                    recognise_word::<'a, E, 'G', 4>,
-                    space0,
-                    context("invalid duration", literal::<'a, E, 'P'>),
-                ),
-                |(_, duration)| Self::Dwell {
-                    duration: Duration::from_secs_f32(duration),
-                },
-            ),
+    pub fn parse<'a>(i: Span) -> IResult<Span, Self> {
+        map(
+            separated_pair(recognise_word::<'G', 4>, space0, literal::<'P'>),
+            |(_, duration)| Self::Dwell {
+                duration: Duration::from_secs_f32(duration),
+            },
         )(i)
     }
 }
@@ -184,44 +150,29 @@ impl NonModal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::error::{ErrorKind, VerboseError};
 
     #[test]
     fn snapshot_motion() {
-        insta::assert_debug_snapshot!(Motion::parse::<(_, ErrorKind)>("G0".into()));
+        insta::assert_debug_snapshot!(Motion::parse("G0".into()));
     }
 
     #[test]
     fn snapshot_non_modal() {
-        insta::assert_debug_snapshot!(NonModal::parse::<(_, ErrorKind)>("G4 P0.1".into()));
+        insta::assert_debug_snapshot!(NonModal::parse("G4 P0.1".into()));
     }
 
     #[test]
     fn position() {
-        insta::assert_debug_snapshot!(Word::parse::<(_, ErrorKind)>("G4 P0.1".into()));
-    }
-
-    #[test]
-    fn position_missing_duration() {
-        let out = Word::parse::<'_, VerboseError<Span>>("G0".into());
-
-        // TODO: Proper assertions
-        let out = out.unwrap_err();
-
-        if let nom::Err::Error(nom::error::VerboseError { errors }) = out {
-            dbg!(errors);
-        }
+        insta::assert_debug_snapshot!(Word::parse("G4 P0.1".into()));
     }
 
     #[test]
     fn block_comment() {
-        insta::assert_debug_snapshot!(Comment::parse::<(_, ErrorKind)>("; absolute magic".into()));
+        insta::assert_debug_snapshot!(Comment::parse("; absolute magic".into()));
     }
 
     #[test]
     fn inline_comment() {
-        insta::assert_debug_snapshot!(Comment::parse::<(_, ErrorKind)>(
-            "(inline comment) G0".into()
-        ));
+        insta::assert_debug_snapshot!(Comment::parse("(inline comment) G0".into()));
     }
 }
