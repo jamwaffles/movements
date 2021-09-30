@@ -1,17 +1,16 @@
 //! Functions to parse words and literals using `Span`s.
 
+use crate::spanned_word::Span;
 use nom::{
-    character::complete::{anychar, digit1, space0},
+    character::complete::{digit1, satisfy, space0},
     combinator::{map_opt, verify},
     number::complete::float,
     sequence::{preceded, separated_pair},
     IResult, ParseTo,
 };
 
-use crate::spanned_word::Span;
-
 pub fn recognise_word<const C: char, const N: u8>(i: Span) -> IResult<Span, ()> {
-    let (i, _letter) = verify(anychar, |c| c.eq_ignore_ascii_case(&C))(i)?;
+    let (i, _letter) = satisfy(|c| c.eq_ignore_ascii_case(&C))(i)?;
 
     let (i, _number): (_, u8) = verify(
         preceded(space0, map_opt(digit1, |d: Span| d.parse_to())),
@@ -39,7 +38,7 @@ pub fn recognise_word_decimal<const C: char, const N: u8, const M: u8>(
 }
 
 pub fn literal<const C: char>(i: Span) -> IResult<Span, f32> {
-    let (i, _letter) = verify(anychar, |c| c.eq_ignore_ascii_case(&C))(i)?;
+    let (i, _letter) = satisfy(|c| c.eq_ignore_ascii_case(&C))(i)?;
 
     preceded(space0, float)(i)
 }
