@@ -3,6 +3,7 @@
 use crate::block::Block;
 use crate::spanned_word::Span;
 use nom::character::complete::line_ending;
+use nom::combinator::all_consuming;
 use nom::multi::separated_list0;
 use nom::IResult;
 
@@ -14,7 +15,7 @@ pub struct Program<'a> {
 // TODO: Trait?
 impl<'a> Program<'a> {
     pub fn parse(i: Span<'a>) -> IResult<Span, Self> {
-        let (i, blocks) = separated_list0(line_ending, Block::parse)(i)?;
+        let (i, blocks) = all_consuming(separated_list0(line_ending, Block::parse))(i)?;
 
         Ok((i, Self { blocks }))
     }
