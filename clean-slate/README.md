@@ -34,6 +34,23 @@ Findings
 
 # Experiment: use nom_supreme's error tree
 
+Findings
+
+- ErrorTree is kind of annoying to use
+- Perhaps I can do well enough using nom's builtin `context`.
+
+# Experiment: Add `context` and print error stacks
+
+Findings
+
+- Very annoying to use
+
+# Experiment: Remove `Span` from most of parser tree
+
+# Experiment: Non-failing parser
+
+- Parse a program with multiple errors _to the end_ and log/print all the errors and their locations.
+
 # Experiment: dynamically load actix actors
 
 - <https://michael-f-bryan.github.io/rust-ffi-guide/dynamic_loading.html>

@@ -7,9 +7,8 @@ use core::time::Duration;
 use nom::{
     branch::alt,
     bytes::complete::take_until,
-    character::complete::anychar,
+    character::complete::not_line_ending,
     combinator::map,
-    multi::many0,
     sequence::{delimited, preceded},
     IResult,
 };
@@ -100,9 +99,9 @@ impl Comment {
                 },
             ),
             map(
-                preceded(nom::character::complete::char(';'), many0(anychar)),
-                |comment: Vec<char>| {
-                    let comment: String = comment.into_iter().collect();
+                preceded(nom::character::complete::char(';'), not_line_ending),
+                |comment: Span| {
+                    let comment: String = comment.fragment().to_string();
 
                     Comment {
                         kind: CommentKind::Block,
@@ -169,6 +168,11 @@ mod tests {
     #[test]
     fn block_comment() {
         insta::assert_debug_snapshot!(Comment::parse("; absolute magic".into()));
+    }
+
+    #[test]
+    fn ignore_newlines() {
+        insta::assert_debug_snapshot!(Comment::parse("; absolute magic\r\n\n".into()));
     }
 
     #[test]
