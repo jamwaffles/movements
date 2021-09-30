@@ -34,6 +34,15 @@ Findings
 
 # Experiment: use nom_supreme's error tree
 
+# Experiment: dynamically load actix actors
+
+- <https://michael-f-bryan.github.io/rust-ffi-guide/dynamic_loading.html>
+- <https://adventures.michaelfbryan.com/posts/plugins-in-rust/>
+
+Another approach
+
+- <https://fasterthanli.me/articles/so-you-want-to-live-reload-rust>
+
 # Stage 1 Goals
 
 - [-] ~Parser itself must be no_std by default~
