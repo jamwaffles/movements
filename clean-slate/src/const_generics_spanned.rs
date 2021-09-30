@@ -1,15 +1,21 @@
 //! Functions to parse words and literals using `Span`s.
 
-use crate::spanned_word::Span;
+use crate::Span;
 use nom::{
     character::complete::{digit1, satisfy, space0},
     combinator::{map_opt, verify},
+    error::ParseError,
     number::complete::float,
     sequence::{preceded, separated_pair},
     IResult, ParseTo,
 };
 
-pub fn recognise_word<const C: char, const N: u8>(i: Span) -> IResult<Span, ()> {
+// pub fn parse<'a, E: ParseError<Span<'a>>>(i: Span<'a>) -> IResult<Span<'a>, Self, E> {
+
+pub fn recognise_word<'a, E, const C: char, const N: u8>(i: Span<'a>) -> IResult<Span, (), E>
+where
+    E: ParseError<Span<'a>>,
+{
     let (i, _letter) = satisfy(|c| c.eq_ignore_ascii_case(&C))(i)?;
 
     let (i, _number): (_, u8) = verify(
@@ -20,11 +26,14 @@ pub fn recognise_word<const C: char, const N: u8>(i: Span) -> IResult<Span, ()> 
     Ok((i, ()))
 }
 
-pub fn recognise_word_decimal<const C: char, const N: u8, const M: u8>(
-    i: Span,
-) -> IResult<Span, ()> {
+pub fn recognise_word_decimal<'a, E, const C: char, const N: u8, const M: u8>(
+    i: Span<'a>,
+) -> IResult<Span, (), E>
+where
+    E: ParseError<Span<'a>>,
+{
     let (i, _) = separated_pair(
-        recognise_word::<C, N>,
+        recognise_word::<'_, E, C, N>,
         space0,
         nom::character::complete::char('.'),
     )(i)?;
@@ -37,7 +46,10 @@ pub fn recognise_word_decimal<const C: char, const N: u8, const M: u8>(
     Ok((i, ()))
 }
 
-pub fn literal<const C: char>(i: Span) -> IResult<Span, f32> {
+pub fn literal<'a, E, const C: char>(i: Span<'a>) -> IResult<Span, f32, E>
+where
+    E: ParseError<Span<'a>>,
+{
     let (i, _letter) = satisfy(|c| c.eq_ignore_ascii_case(&C))(i)?;
 
     preceded(space0, float)(i)
@@ -46,42 +58,44 @@ pub fn literal<const C: char>(i: Span) -> IResult<Span, f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::combinator::all_consuming;
+    use nom::{combinator::all_consuming, error::ErrorKind};
 
     #[test]
     fn const_generics_int_word() {
-        assert!(recognise_word::<'G', 0>("G0".into()).is_ok());
-        assert!(recognise_word::<'G', 0>("G00".into()).is_ok());
-        assert!(recognise_word::<'G', 0>("g00".into()).is_ok());
-        assert!(recognise_word::<'G', 0>("g0".into()).is_ok());
-        assert!(recognise_word::<'G', 0>("g01".into()).is_err());
+        assert!(recognise_word::<(_, ErrorKind), 'G', 0>("G0".into()).is_ok());
+        assert!(recognise_word::<(_, ErrorKind), 'G', 0>("G00".into()).is_ok());
+        assert!(recognise_word::<(_, ErrorKind), 'G', 0>("g00".into()).is_ok());
+        assert!(recognise_word::<(_, ErrorKind), 'G', 0>("g0".into()).is_ok());
+        assert!(recognise_word::<(_, ErrorKind), 'G', 0>("g01".into()).is_err());
 
-        assert!(recognise_word::<'G', 4>("G04".into()).is_ok());
-        assert!(recognise_word::<'G', 4>("G4".into()).is_ok());
+        assert!(recognise_word::<(_, ErrorKind), 'G', 4>("G04".into()).is_ok());
+        assert!(recognise_word::<(_, ErrorKind), 'G', 4>("G4".into()).is_ok());
     }
 
     #[test]
     fn const_generics_decimal_word() {
-        assert!(recognise_word_decimal::<'G', 17, 1>("G17.1".into()).is_ok());
-        assert!(recognise_word_decimal::<'G', 17, 1>("g17.1".into()).is_ok());
-        assert!(recognise_word_decimal::<'G', 17, 1>("g17 . 1".into()).is_ok());
-        assert!(recognise_word_decimal::<'G', 17, 1>("g   17   .    1".into()).is_ok());
+        assert!(recognise_word_decimal::<(_, ErrorKind), 'G', 17, 1>("G17.1".into()).is_ok());
+        assert!(recognise_word_decimal::<(_, ErrorKind), 'G', 17, 1>("g17.1".into()).is_ok());
+        assert!(recognise_word_decimal::<(_, ErrorKind), 'G', 17, 1>("g17 . 1".into()).is_ok());
+        assert!(
+            recognise_word_decimal::<(_, ErrorKind), 'G', 17, 1>("g   17   .    1".into()).is_ok()
+        );
 
-        assert!(recognise_word_decimal::<'G', 17, 1>("M17.1".into()).is_err());
-        assert!(recognise_word_decimal::<'G', 17, 1>("M17".into()).is_err());
-        assert!(recognise_word_decimal::<'G', 17, 1>("M17.".into()).is_err());
-        assert!(recognise_word_decimal::<'G', 17, 1>("M17.2".into()).is_err());
-        assert!(recognise_word_decimal::<'G', 17, 1>("M17.1".into()).is_err());
+        assert!(recognise_word_decimal::<(_, ErrorKind), 'G', 17, 1>("M17.1".into()).is_err());
+        assert!(recognise_word_decimal::<(_, ErrorKind), 'G', 17, 1>("M17".into()).is_err());
+        assert!(recognise_word_decimal::<(_, ErrorKind), 'G', 17, 1>("M17.".into()).is_err());
+        assert!(recognise_word_decimal::<(_, ErrorKind), 'G', 17, 1>("M17.2".into()).is_err());
+        assert!(recognise_word_decimal::<(_, ErrorKind), 'G', 17, 1>("M17.1".into()).is_err());
     }
 
     #[test]
     fn literals() {
         assert_eq!(
-            literal::<'P'>("p 0.005".into()),
+            literal::<(_, ErrorKind), 'P'>("p 0.005".into()),
             Ok((unsafe { Span::new_from_raw_offset(7, 1, "", ()) }, 0.005f32))
         );
 
         // Decimals with spaces in them are not supported.
-        assert!(all_consuming(literal::<'P'>)("p 0 . 005".into()).is_err());
+        assert!(all_consuming(literal::<(_, ErrorKind), 'P'>)("p 0 . 005".into()).is_err());
     }
 }
