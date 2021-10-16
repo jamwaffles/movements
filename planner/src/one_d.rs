@@ -1,6 +1,6 @@
 use std::ops;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Vertex {
     pub position: f32,
     pub velocity: f32,
@@ -21,28 +21,30 @@ fn p_2(t: f32, initial_position: f32, initial_velocity: f32, acceleration: f32) 
 
 #[derive(Debug, Clone)]
 pub struct Segment {
-    delta_t1: f32,
-    delta_t2: f32,
-    delta_t3: f32,
+    pub delta_t1: f32,
+    pub delta_t2: f32,
+    pub delta_t3: f32,
 
-    t1: f32,
-    t2: f32,
-    t3: f32,
+    pub t1: f32,
+    pub t2: f32,
+    pub t3: f32,
 
-    range_t1: ops::Range<f32>,
-    range_t2: ops::Range<f32>,
-    range_t3: ops::RangeInclusive<f32>,
+    pub range_t1: ops::Range<f32>,
+    pub range_t2: ops::Range<f32>,
+    pub range_t3: ops::RangeInclusive<f32>,
 
-    delta_x1: f32,
-    delta_x2: f32,
-    delta_x3: f32,
+    pub delta_x1: f32,
+    pub delta_x2: f32,
+    pub delta_x3: f32,
 
-    start: Vertex,
-    end: Vertex,
+    pub start: Vertex,
+    pub end: Vertex,
 
-    acceleration: f32,
-    deceleration: f32,
-    cruise_velocity: f32,
+    pub acceleration: f32,
+    pub deceleration: f32,
+    pub cruise_velocity: f32,
+
+    pub x_stop: f32,
 }
 
 impl Segment {
@@ -152,7 +154,13 @@ impl Segment {
             acceleration: accel_t1,
             deceleration: accel_t3,
             cruise_velocity,
+
+            x_stop,
         }
+    }
+
+    pub fn displacement(&self) -> f32 {
+        self.delta_x1 + self.delta_x2 + self.delta_x3
     }
 
     pub fn duration(&self) -> f32 {

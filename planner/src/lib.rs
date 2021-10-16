@@ -1,4 +1,5 @@
 pub mod one_d;
+pub mod one_d_jerk;
 
 #[cfg(test)]
 mod tests {
