@@ -309,6 +309,10 @@ fn build_ui(application: &gtk::Application) {
                     cr.move_to(x_base, y_base + font_size * 3.0);
                     cr.set_source_rgb(0.0, 0.0, 1.0);
                     cr.show_text(&format!("Acceleration {:+04.2}", segment.acceleration(t))).unwrap();
+
+                    cr.move_to(x_base, y_base + font_size * 4.0);
+                    cr.set_source_rgb(0.0, 1.0, 0.0);
+                    cr.show_text(&format!("Jerk         {:+04.2}", segment.jerk(t))).unwrap();
                 }
 
                 cr.set_source_rgb(0.5, 0.5, 0.5);
@@ -350,6 +354,19 @@ fn build_ui(application: &gtk::Application) {
                 for x in 0..total {
                     let t = segment.duration() * x as f32 / total as f32;
                     let y_pos: f64 = mid_y + f64::from(segment.acceleration(t)) * y_scale;
+                    cr.line_to(x as f64, height - y_pos);
+                }
+                cr.stroke().expect("Invalid cairo surface state");
+            }
+
+
+            // Jerk
+            {
+                cr.set_source_rgb(0.0, 1.0, 0.0);
+                cr.move_to(0.0, mid_y);
+                for x in 0..total {
+                    let t = segment.duration() * x as f32 / total as f32;
+                    let y_pos: f64 = mid_y + f64::from(segment.jerk(t)) * y_scale;
                     cr.line_to(x as f64, height - y_pos);
                 }
                 cr.stroke().expect("Invalid cairo surface state");
