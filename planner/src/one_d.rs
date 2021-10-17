@@ -13,9 +13,7 @@ pub struct Limits {
 }
 
 /// Second order polynomial.
-///
-/// - t:
-fn p_2(t: f32, initial_position: f32, initial_velocity: f32, acceleration: f32) -> f32 {
+pub fn p_2(t: f32, initial_position: f32, initial_velocity: f32, acceleration: f32) -> f32 {
     initial_position + (initial_velocity * t) + (0.5 * acceleration * t.powi(2))
 }
 
@@ -27,6 +25,8 @@ pub struct Segment {
 
     pub range_t1: ops::Range<f32>,
     pub range_t2: ops::Range<f32>,
+    // TODO: Turn into a normal `Range` - this will cause overlap issues when there are multiple
+    // adjacent segments in a trajectory.
     pub range_t3: ops::RangeInclusive<f32>,
 
     pub delta_x1: f32,
