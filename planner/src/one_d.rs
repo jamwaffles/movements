@@ -25,10 +25,6 @@ pub struct Segment {
     pub delta_t2: f32,
     pub delta_t3: f32,
 
-    pub t1: f32,
-    pub t2: f32,
-    pub t3: f32,
-
     pub range_t1: ops::Range<f32>,
     pub range_t2: ops::Range<f32>,
     pub range_t3: ops::RangeInclusive<f32>,
@@ -140,10 +136,6 @@ impl Segment {
             delta_t2,
             delta_t3,
 
-            t1,
-            t2,
-            t3,
-
             range_t1,
             range_t2,
             range_t3,
@@ -164,7 +156,7 @@ impl Segment {
     }
 
     pub fn duration(&self) -> f32 {
-        self.t3
+        *self.range_t3.end()
     }
 
     pub fn position(&self, t: f32) -> f32 {
@@ -181,19 +173,19 @@ impl Segment {
         else if self.range_t2.contains(&t) {
             // Position at end of t1
             let x1 = p_2(
-                self.t1,
+                self.range_t1.end,
                 self.start.position,
                 self.start.velocity,
                 self.acceleration,
             );
 
-            p_2(t - self.t1, x1, self.cruise_velocity, 0.0)
+            p_2(t - self.range_t1.end, x1, self.cruise_velocity, 0.0)
         }
         // Deceleration t3
         else if self.range_t3.contains(&t) {
             // Position at end of t1
             let x1 = p_2(
-                self.t1,
+                self.range_t1.end,
                 self.start.position,
                 self.start.velocity,
                 self.acceleration,
@@ -202,7 +194,12 @@ impl Segment {
             // Position at end of cruise phase
             let x2 = x1 + (self.cruise_velocity * self.delta_t2);
 
-            p_2(t - self.t2, x2, self.cruise_velocity, self.deceleration)
+            p_2(
+                t - self.range_t2.end,
+                x2,
+                self.cruise_velocity,
+                self.deceleration,
+            )
         } else {
             unreachable!()
         }
@@ -219,7 +216,7 @@ impl Segment {
         }
         // Deceleration t3
         else if self.range_t3.contains(&t) {
-            self.cruise_velocity + self.deceleration * (t - self.t2)
+            self.cruise_velocity + self.deceleration * (t - self.range_t2.end)
         } else {
             unreachable!()
         }
