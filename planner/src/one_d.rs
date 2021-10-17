@@ -45,6 +45,11 @@ pub struct Segment {
 
 impl Segment {
     pub fn new(start: Vertex, end: Vertex, limits: &Limits) -> Self {
+        // If positions are equal, don't do anything
+        if (end.position - start.position).abs() <= f32::EPSILON {
+            return Self::zero();
+        }
+
         // Position reached when decelerating from start velocity to full stop
         let x_stop = {
             let final_velocity = 0.0f32;
@@ -53,9 +58,10 @@ impl Segment {
         };
 
         // Sign of cruising (general direction)
-        let sign = (end.position - x_stop).signum();
+        let mut sign = (end.position - start.position).signum();
 
         // Acceleration sign
+        // let accel_t1 = limits.acceleration * sign;
         let accel_t1 = limits.acceleration
             * if start.velocity <= limits.velocity {
                 // Below velocity limit - accelerate
@@ -67,19 +73,19 @@ impl Segment {
             };
 
         // Deceleration
-        let accel_t3 = -limits.acceleration;
+        let accel_t3 = -limits.acceleration * sign;
 
         // Maximum cruise velocity
-        let mut cruise_velocity = limits.velocity;
+        let mut cruise_velocity = limits.velocity * sign;
 
         // First phase accel/decel time
-        let mut delta_t1 = (cruise_velocity - start.velocity) / accel_t1;
+        let mut delta_t1 = f32::abs((cruise_velocity - start.velocity) / accel_t1);
 
         // First phase displacement
         let mut delta_x1 = p_2(delta_t1, 0.0, start.velocity, accel_t1);
 
         // Third phase decel time
-        let mut delta_t3 = cruise_velocity / accel_t3.abs();
+        let mut delta_t3 = f32::abs(cruise_velocity / accel_t3);
 
         // Third phase displacement
         let mut delta_x3 = p_2(delta_t3, 0.0, cruise_velocity, accel_t3);
@@ -93,18 +99,18 @@ impl Segment {
             // New limit for cruise velocity
             cruise_velocity = f32::sqrt(
                 accel_t1 * (end.position - start.position) + (0.5 * start.velocity.powi(2)),
-            );
+            ) * sign;
 
             delta_t2 = 0.0;
 
             // First phase accel/decel time
-            delta_t1 = (cruise_velocity - start.velocity) / accel_t1;
+            delta_t1 = f32::abs((cruise_velocity - start.velocity) / accel_t1);
 
             // First phase displacement
             delta_x1 = p_2(delta_t1, 0.0, start.velocity, accel_t1);
 
             // Third phase decel time
-            delta_t3 = cruise_velocity / accel_t3.abs();
+            delta_t3 = f32::abs(cruise_velocity / accel_t3);
 
             // Third phase displacement
             delta_x3 = p_2(delta_t3, 0.0, cruise_velocity, accel_t3);
@@ -148,6 +154,31 @@ impl Segment {
             cruise_velocity,
 
             x_stop,
+        }
+    }
+
+    fn zero() -> Self {
+        Self {
+            delta_x1: 0.0,
+            delta_x2: 0.0,
+            delta_x3: 0.0,
+
+            delta_t1: 0.0,
+            delta_t2: 0.0,
+            delta_t3: 0.0,
+
+            range_t1: 0.0..0.0,
+            range_t2: 0.0..0.0,
+            range_t3: 0.0..=0.0,
+
+            start: Vertex::default(),
+            end: Vertex::default(),
+
+            acceleration: 0.0,
+            deceleration: 0.0,
+            cruise_velocity: 0.0,
+
+            x_stop: 0.0,
         }
     }
 
