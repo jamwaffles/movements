@@ -37,106 +37,21 @@ fn p_2(t: f32, initial_velocity: f32, initial_acceleration: f32, jerk: f32) -> f
 //     p_2(t, initial_position, initial_velocity, acceleration) + (1.0 / 6.0) * jerk * t.powi(3)
 // }
 
-struct AccelDecel {
-    // TODO
-}
-
-fn zero_cruise(
-    mut start_velocity: f32,
-    mut final_velocity: f32,
-    limits: &Limits,
-) -> one_d::Segment {
-    // let start_acceleration = limits.acceleration;
-    // let end_acceleration = -limits.acceleration;
-
-    // Acceleration sign
-    let accel_t1 = limits.jerk;
-
-    // Deceleration
-    let accel_t3 = -limits.jerk;
-
-    // Maximum cruise velocity
-    let mut cruise_acceleration = limits.acceleration;
-
-    // First phase accel/decel time
-    let mut delta_t1 = cruise_acceleration / accel_t1;
-
-    // First phase displacement
-    let mut delta_x1 = p_2(delta_t1, 0.0, 0.0, accel_t1);
-
-    // Third phase decel time
-    let mut delta_t3 = cruise_acceleration / accel_t3.abs();
-
-    // Third phase displacement
-    let mut delta_x3 = p_2(delta_t3, 0.0, limits.acceleration, accel_t3);
-
-    let mut delta_t2 =
-        (final_velocity - (start_velocity + delta_x1 + delta_x3)) / cruise_acceleration;
-
-    // Not enough space/time to create a trapezoidal profile. We'll reduce the maximum velocity
-    // and recalculate everything to form a "wedge" shaped profile.
-    if delta_t2 < 0.0 {
-        // New limit for cruise velocity
-        cruise_acceleration =
-            f32::sqrt(accel_t1 * (final_velocity - start_velocity) + (0.5 * 0.0f32.powi(2)));
-
-        delta_t2 = 0.0;
-
-        // First phase accel/decel time
-        delta_t1 = (cruise_acceleration - start_velocity) / accel_t1;
-
-        // First phase displacement
-        delta_x1 = p_2(delta_t1, 0.0, 0.0, accel_t1);
-
-        // Third phase decel time
-        delta_t3 = cruise_acceleration / accel_t3.abs();
-
-        // Third phase displacement
-        delta_x3 = p_2(delta_t3, 0.0, cruise_acceleration, accel_t3);
-    }
-
-    // Cruise displacement (will be 0 if a wedge shaped profile is formed)
-    let delta_x2 = cruise_acceleration * delta_t2;
-
-    // Time at end of first phase
-    let t1 = delta_t1;
-
-    // Time at end of cruise phase
-    let t2 = delta_t1 + delta_t2;
-
-    // Total segment time
-    let t3 = delta_t1 + delta_t2 + delta_t3;
-
-    let range_t1 = 0.0..t1;
-    let range_t2 = t1..t2;
-    let range_t3 = t2..=t3;
-
-    one_d::Segment {
-        delta_x1,
-        delta_x2,
-        delta_x3,
-
-        delta_t1,
-        delta_t2,
-        delta_t3,
-
-        t1,
-        t2,
-        t3,
-
-        range_t1,
-        range_t2,
-        range_t3,
-
-        start: Vertex::default(),
-        end: Vertex::default(),
-
-        acceleration: accel_t1,
-        deceleration: accel_t3,
-        cruise_velocity: cruise_acceleration,
-
-        x_stop: 0.0,
-    }
+fn zero_cruise(start_velocity: f32, end_velocity: f32, limits: &Limits) -> one_d::Segment {
+    one_d::Segment::new(
+        Vertex {
+            position: start_velocity,
+            velocity: 0.0,
+        },
+        Vertex {
+            position: end_velocity,
+            velocity: 0.0,
+        },
+        &one_d::Limits {
+            velocity: limits.acceleration,
+            acceleration: limits.jerk,
+        },
+    )
 }
 
 #[derive(Debug, Clone)]
@@ -179,12 +94,13 @@ impl Segment {
                 + decel_zero_cruise.displacement()))
             / limits.velocity;
 
-        // dbg!(delta_t4);
+        dbg!(delta_t4);
 
-        // // TODO: Negative cruise duration
-        // let duration =
-        //     accel_zero_cruise.duration() + delta_t4.max(0.0) + decel_zero_cruise.duration();
-        let duration = accel_zero_cruise.duration();
+        // TODO: Negative cruise duration
+        let delta_t4 = delta_t4.max(0.0);
+
+        let duration =
+            accel_zero_cruise.duration() + delta_t4.max(0.0) + decel_zero_cruise.duration();
 
         let accel = 0.0..accel_zero_cruise.duration();
         let cruise = accel.end..(accel.end + delta_t4);
@@ -215,10 +131,10 @@ impl Segment {
     pub fn velocity(&self, t: f32) -> f32 {
         if self.accel.contains(&t) {
             self.accel_zero_cruise.position(t)
-        // } else if self.cruise.contains(&t) {
-        //     self.limits.velocity
-        // } else if self.decel.contains(&t) {
-        //     self.accel_zero_cruise.position(t - self.decel.start())
+        } else if self.cruise.contains(&t) {
+            self.limits.velocity
+        } else if self.decel.contains(&t) {
+            self.decel_zero_cruise.position(t - self.decel.start())
         } else {
             // unreachable!("{}", t)
             0.0
@@ -228,10 +144,10 @@ impl Segment {
     pub fn acceleration(&self, t: f32) -> f32 {
         if self.accel.contains(&t) {
             self.accel_zero_cruise.velocity(t)
-        // } else if self.cruise.contains(&t) {
-        //     0.0
-        // } else if self.decel.contains(&t) {
-        //     self.accel_zero_cruise.velocity(t - self.decel.start())
+        } else if self.cruise.contains(&t) {
+            0.0
+        } else if self.decel.contains(&t) {
+            self.decel_zero_cruise.velocity(t - self.decel.start())
         } else {
             // unreachable!("{}", t)
             0.0
