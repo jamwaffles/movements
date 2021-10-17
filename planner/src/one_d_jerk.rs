@@ -69,6 +69,13 @@ pub struct Segment {
 
     start: Vertex,
     end: Vertex,
+
+    x1: Vertex,
+    x2: Vertex,
+    x3: Vertex,
+    x4: Vertex,
+    x5: Vertex,
+    x6: Vertex,
 }
 
 impl Segment {
@@ -99,7 +106,7 @@ impl Segment {
         // and we must decrease accel/decel.
         let delta_t4 = (end.position - (start.position + delta_acc + delta_dec)) / limits.velocity;
 
-        dbg!(delta_t4);
+        // dbg!(delta_t4);
 
         // TODO: Negative cruise duration
         let delta_t4 = delta_t4.max(0.0);
@@ -110,7 +117,67 @@ impl Segment {
         let cruise = accel.end..(accel.end + delta_t4);
         let decel = cruise.end..=(cruise.end + decel_zero_cruise.duration());
 
-        dbg!(&accel, &cruise, &decel);
+        // dbg!(&accel, &cruise, &decel);
+
+        let x1 = Vertex {
+            velocity: accel_zero_cruise.position(accel_zero_cruise.range_t1.end),
+            position: p_3(
+                accel_zero_cruise.range_t1.end,
+                start.position,
+                start.velocity,
+                0.0,
+                limits.jerk,
+            ),
+        };
+
+        let x2 = Vertex {
+            velocity: accel_zero_cruise.position(accel_zero_cruise.range_t2.end),
+            position: p_3(
+                accel_zero_cruise.range_t2.end - accel_zero_cruise.range_t1.end,
+                x1.position,
+                x1.velocity,
+                accel_zero_cruise.cruise_velocity,
+                0.0,
+            ),
+        };
+
+        let x3 = Vertex {
+            velocity: accel_zero_cruise.position(*accel_zero_cruise.range_t3.end()),
+            position: p_3(
+                accel_zero_cruise.range_t3.end() - accel_zero_cruise.range_t2.end,
+                x2.position,
+                x2.velocity,
+                accel_zero_cruise.cruise_velocity,
+                -limits.jerk,
+            ),
+        };
+
+        let x4 = Vertex {
+            velocity: accel_zero_cruise.position(*accel_zero_cruise.range_t3.end()),
+            position: p_3(cruise.end - accel.end, x3.position, x3.velocity, 0.0, 0.0),
+        };
+
+        let x5 = Vertex {
+            velocity: decel_zero_cruise.position(decel_zero_cruise.range_t1.end),
+            position: p_3(
+                decel_zero_cruise.range_t1.end,
+                x4.position,
+                x4.velocity,
+                0.0,
+                -limits.jerk,
+            ),
+        };
+
+        let x6 = Vertex {
+            velocity: decel_zero_cruise.position(decel_zero_cruise.range_t2.end),
+            position: p_3(
+                decel_zero_cruise.range_t2.end - decel_zero_cruise.range_t1.end,
+                x5.position,
+                x5.velocity,
+                decel_zero_cruise.cruise_velocity,
+                0.0,
+            ),
+        };
 
         Self {
             accel_zero_cruise,
@@ -123,6 +190,12 @@ impl Segment {
             limits: limits.clone(),
             start,
             end,
+            x1,
+            x2,
+            x3,
+            x4,
+            x5,
+            x6,
         }
     }
 
@@ -130,10 +203,29 @@ impl Segment {
         self.duration
     }
 
+    pub fn position(&self, t: f32) -> f32 {
+        if self.accel.contains(&t) {
+            self.position_accel(t)
+        } else if self.cruise.contains(&t) {
+            p_3(
+                t - self.accel.end,
+                self.x3.position,
+                self.x3.velocity,
+                0.0,
+                0.0,
+            )
+        } else if self.decel.contains(&t) {
+            self.position_decel(t)
+        } else {
+            // unreachable!("{}", t)
+            0.0
+        }
+    }
+
+    /// Compute position for the acceleration phase (t0 to t3).
     fn position_accel(&self, t: f32) -> f32 {
         let accel = &self.accel_zero_cruise;
 
-        // Acceleration phase t1 (or deceleration if we were originally moving too fast)
         if accel.range_t1.contains(&t) {
             p_3(
                 t,
@@ -142,216 +234,64 @@ impl Segment {
                 0.0,
                 self.limits.jerk,
             )
-        }
-        // Cruise phase t2
-        else if accel.range_t2.contains(&t) {
-            // Position at end of acceleration ramp
-            let x1 = p_3(
-                accel.range_t1.end,
-                self.start.position,
-                self.start.velocity,
-                0.0,
-                self.limits.jerk,
-            );
-
-            // Velocity at end of acceleration ramp
-            let v1 = accel.position(accel.range_t1.end);
-
-            let t = t - accel.range_t1.end;
-
-            p_2(t, x1, v1, accel.cruise_velocity)
-        }
-        // Deceleration t3
-        else if accel.range_t3.contains(&t) {
-            // Velocity at end of constant acceleration
-            let v2 = accel.position(accel.range_t2.end);
-
-            // Position at end of constant acceleration
-            let x2 = {
-                // Position at end of acceleration ramp
-                let x1 = p_3(
-                    accel.range_t1.end,
-                    self.start.position,
-                    self.start.velocity,
-                    0.0,
-                    self.limits.jerk,
-                );
-
-                // Velocity at end of acceleration ramp
-                let v1 = accel.position(accel.range_t1.end);
-
-                p_2(
-                    accel.range_t2.end - accel.range_t1.end,
-                    x1,
-                    v1,
-                    accel.cruise_velocity,
-                )
-            };
-
-            let t = t - accel.range_t2.end;
-
-            p_3(t, x2, v2, accel.cruise_velocity, -self.limits.jerk)
+        } else if accel.range_t2.contains(&t) {
+            p_2(
+                t - accel.range_t1.end,
+                self.x1.position,
+                self.x1.velocity,
+                accel.cruise_velocity,
+            )
+        } else if accel.range_t3.contains(&t) {
+            p_3(
+                t - accel.range_t2.end,
+                self.x2.position,
+                self.x2.velocity,
+                accel.cruise_velocity,
+                -self.limits.jerk,
+            )
         } else {
             // unreachable!()
             0.0
         }
     }
 
+    /// Compute position for the deceleration phase (t4 to t7).
     fn position_decel(&self, t: f32) -> f32 {
         let decel = &self.decel_zero_cruise;
-        let accel = &self.accel_zero_cruise;
-
-        let cruise_end_vel = accel.position(*accel.range_t3.end());
-        let cruise_end_pos = {
-            // Velocity at end of velocity ramp
-            let v1 = accel.position(*accel.range_t3.end());
-
-            // Position at end of velocity ramp
-            let x1 = {
-                // Velocity at end of constant acceleration
-                let v2 = accel.position(accel.range_t2.end);
-
-                // Position at end of constant acceleration
-                let x2 = {
-                    // Position at end of acceleration ramp
-                    let x1 = p_3(
-                        accel.range_t1.end,
-                        self.start.position,
-                        self.start.velocity,
-                        0.0,
-                        self.limits.jerk,
-                    );
-
-                    // Velocity at end of acceleration ramp
-                    let v1 = accel.position(accel.range_t1.end);
-
-                    p_2(
-                        accel.range_t2.end - accel.range_t1.end,
-                        x1,
-                        v1,
-                        accel.cruise_velocity,
-                    )
-                };
-
-                let t = accel.range_t3.end() - accel.range_t2.end;
-
-                p_3(t, x2, v2, accel.cruise_velocity, -self.limits.jerk)
-            };
-
-            p_3(self.cruise.end - self.accel.end, x1, v1, 0.0, 0.0)
-        };
 
         // Make all times relative to start of decel phase
         let t = t - self.cruise.end;
 
         // Deceleration ramp up, max jerk
         if decel.range_t1.contains(&t) {
-            p_3(t, cruise_end_pos, cruise_end_vel, 0.0, -self.limits.jerk)
+            p_3(
+                t,
+                self.x4.position,
+                self.x4.velocity,
+                0.0,
+                -self.limits.jerk,
+            )
         }
         // Constant deceleration
         else if decel.range_t2.contains(&t) {
-            let prev_end_vel = decel.position(decel.range_t1.end);
-            let prev_end_pos = {
-                p_3(
-                    decel.range_t1.end,
-                    cruise_end_pos,
-                    cruise_end_vel,
-                    0.0,
-                    -self.limits.jerk,
-                )
-            };
-
             p_2(
                 t - decel.range_t1.end,
-                prev_end_pos,
-                prev_end_vel,
-                -accel.cruise_velocity,
+                self.x5.position,
+                self.x5.velocity,
+                decel.cruise_velocity,
             )
         }
         // Deceleration ramp to 0, minimum jerk
         else if decel.range_t3.contains(&t) {
-            let prev_end_vel = decel.position(decel.range_t2.end);
-            let prev_end_pos = {
-                let prev_end_vel = decel.position(decel.range_t1.end);
-                let prev_end_pos = {
-                    p_3(
-                        decel.range_t1.end,
-                        cruise_end_pos,
-                        cruise_end_vel,
-                        0.0,
-                        -self.limits.jerk,
-                    )
-                };
-
-                p_2(
-                    decel.range_t2.end - decel.range_t1.end,
-                    prev_end_pos,
-                    prev_end_vel,
-                    -accel.cruise_velocity,
-                )
-            };
-
-            let t = t - decel.range_t2.end;
-
             p_3(
-                t,
-                prev_end_pos,
-                prev_end_vel,
-                -accel.cruise_velocity,
+                t - decel.range_t2.end,
+                self.x6.position,
+                self.x6.velocity,
+                decel.cruise_velocity,
                 self.limits.jerk,
             )
         } else {
             // unreachable!()
-            0.0
-        }
-    }
-
-    pub fn position(&self, t: f32) -> f32 {
-        if self.accel.contains(&t) {
-            self.position_accel(t)
-        } else if self.cruise.contains(&t) {
-            let accel = &self.accel_zero_cruise;
-
-            // Velocity at end of velocity ramp
-            let v1 = accel.position(*accel.range_t3.end());
-
-            // Position at end of velocity ramp
-            let x1 = {
-                // Velocity at end of constant acceleration
-                let v2 = accel.position(accel.range_t2.end);
-
-                // Position at end of constant acceleration
-                let x2 = {
-                    // Position at end of acceleration ramp
-                    let x1 = p_3(
-                        accel.range_t1.end,
-                        self.start.position,
-                        self.start.velocity,
-                        0.0,
-                        self.limits.jerk,
-                    );
-
-                    // Velocity at end of acceleration ramp
-                    let v1 = accel.position(accel.range_t1.end);
-
-                    p_2(
-                        accel.range_t2.end - accel.range_t1.end,
-                        x1,
-                        v1,
-                        accel.cruise_velocity,
-                    )
-                };
-
-                let t = accel.range_t3.end() - accel.range_t2.end;
-
-                p_3(t, x2, v2, accel.cruise_velocity, -self.limits.jerk)
-            };
-
-            p_3(t - self.accel.end, x1, v1, 0.0, 0.0)
-        } else if self.decel.contains(&t) {
-            self.position_decel(t)
-        } else {
-            // unreachable!("{}", t)
             0.0
         }
     }
