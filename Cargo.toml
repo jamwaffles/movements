@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "realtime-test",
     "playground",
     # "gcode-parser-old",
     # "gcode-validator",
@@ -13,6 +12,10 @@ members = [
     "common",
     "planner",
     "clean-slate"
+]
+exclude = [
+    # Excluded as it doesn't work on macOS
+    "realtime-test",
 ]
 
 # [patch.crates-io]
