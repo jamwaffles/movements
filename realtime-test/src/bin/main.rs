@@ -2,11 +2,45 @@ use chrono::SecondsFormat;
 use crossbeam::crossbeam_channel::tick;
 use histogram::*;
 use realtime_test::{spawn_unchecked, SchedPolicy};
+use std::fmt;
 use std::{
     sync::mpsc::channel,
     thread,
     time::{Duration, Instant},
 };
+
+#[derive(Debug)]
+enum Stats {
+    Base,
+    Servo,
+}
+
+impl fmt::Display for Stats {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Base => f.write_str("base "),
+            Self::Servo => f.write_str("servo"),
+        }
+    }
+}
+
+struct Payload {
+    stats: Stats,
+    min_nanos: u64,
+    max_nanos: u64,
+    mean_nanos: u64,
+    stddev_nanos: u64,
+}
+
+fn gen_stats(thread: Stats, histogram: &Histogram) -> Payload {
+    Payload {
+        stats: thread,
+        min_nanos: histogram.minimum().unwrap(),
+        max_nanos: histogram.maximum().unwrap(),
+        mean_nanos: histogram.mean().unwrap(),
+        stddev_nanos: histogram.stddev().unwrap(),
+    }
+}
 
 fn main() {
     let run_name = hostname::get().unwrap().into_string().unwrap();
@@ -31,57 +65,81 @@ fn main() {
     );
 
     // Servo period from LCNC
-    // let period = Duration::from_micros(1000);
+    let servo_period = Duration::from_micros(1000);
     // Base thread period from LCNC
-    let period = Duration::from_micros(25);
+    let base_period = Duration::from_micros(25);
 
-    let (tx, rx) = channel();
+    let log_period = Duration::from_millis(1000);
 
-    let mut histogram = Histogram::new();
+    let (stats_tx, stats_rx) = channel();
 
-    let thread = spawn_unchecked(policy, prio, move || {
+    let stats_tx2 = stats_tx.clone();
+
+    let servo_thread = spawn_unchecked(policy, prio, move || {
         let mut start = Instant::now();
 
-        let ticker = tick(period);
+        let ticker = tick(servo_period);
 
-        for _ in 0..10000 {
+        let mut histogram = Histogram::new();
+
+        let mut interval = Instant::now();
+
+        // for _ in 0..100000 {
+        loop {
             ticker.recv().unwrap();
             let time = start.elapsed();
             start = start + start.elapsed();
 
-            tx.send(time.as_nanos() as u64).unwrap();
-            // println!("elapsed: {:?}", time);
-            // println!("{}", time.as_nanos() as i64 - period.as_nanos() as i64);
+            histogram.increment(time.as_nanos() as u64).unwrap();
+
+            if interval.elapsed() > log_period {
+                interval = Instant::now();
+
+                stats_tx2.send(gen_stats(Stats::Servo, &histogram));
+            }
         }
-
-        // for _ in 0..10000 {
-        //     thread::sleep(period);
-
-        //     let time = start.elapsed();
-        //     start = start + start.elapsed();
-
-        //     // let value = time.as_nanos() as i64 - period.as_nanos() as i64;
-
-        //     // println!("{}", value);
-        //     tx.send(time.as_nanos() as u64).unwrap();
-        // }
     })
-    .expect("Failed to spawn thread");
+    .expect("Failed to spawn servo thread");
 
-    while let Ok(value) = rx.recv() {
-        histogram.increment(value).unwrap();
+    let base_thread = spawn_unchecked(policy, prio, move || {
+        let mut start = Instant::now();
+
+        let mut histogram = Histogram::new();
+
+        let ticker = tick(base_period);
+
+        let mut interval = Instant::now();
+
+        // for _ in 0..100000 {
+        loop {
+            ticker.recv().unwrap();
+            let time = start.elapsed();
+            start = start + start.elapsed();
+
+            histogram.increment(time.as_nanos() as u64).unwrap();
+
+            if interval.elapsed() > log_period {
+                interval = Instant::now();
+
+                stats_tx.send(gen_stats(Stats::Base, &histogram));
+            }
+        }
+    })
+    .expect("Failed to spawn base thread");
+
+    let mut interval = 0;
+
+    while let Ok(stats) = stats_rx.recv() {
+        println!(
+            "{} latency: min: {:<5} us, avg: {:<5} us, max: {:<5} us stddev: {:<5} us",
+            stats.stats,
+            stats.min_nanos / 1000,
+            stats.mean_nanos / 1000,
+            stats.max_nanos / 1000,
+            stats.stddev_nanos / 1000
+        )
     }
 
-    let stats = format!(
-        "Scheduling policy {:?}\nLatency (ns): Min: {:?} Avg: {:?} Max: {:?} StdDev: {:?}",
-        policy,
-        Duration::from_nanos(histogram.minimum().unwrap()).as_micros(),
-        Duration::from_nanos(histogram.mean().unwrap()).as_micros(),
-        Duration::from_nanos(histogram.maximum().unwrap()).as_micros(),
-        Duration::from_nanos(histogram.stddev().unwrap()).as_micros(),
-    );
-
-    println!("{}", stats);
-
-    thread.join().unwrap();
+    servo_thread.join().unwrap();
+    base_thread.join().unwrap();
 }
