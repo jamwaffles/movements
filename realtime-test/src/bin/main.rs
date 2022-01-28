@@ -1,7 +1,7 @@
 use chrono::SecondsFormat;
 use crossbeam::crossbeam_channel::tick;
 use histogram::*;
-use realtime_test::{spawn_unchecked, SchedPolicy};
+use realtime_test::{set_thread_prio, spawn_unchecked, SchedPolicy};
 use std::fmt;
 use std::{
     sync::mpsc::channel,
@@ -75,7 +75,9 @@ fn main() {
 
     let stats_tx2 = stats_tx.clone();
 
-    let servo_thread = spawn_unchecked(policy, prio, move || {
+    let servo_thread = thread::spawn(move || {
+        set_thread_prio(prio, policy);
+
         let mut start = Instant::now();
 
         let ticker = tick(servo_period);
@@ -84,7 +86,6 @@ fn main() {
 
         let mut interval = Instant::now();
 
-        // for _ in 0..100000 {
         loop {
             ticker.recv().unwrap();
             let time = start.elapsed();
@@ -98,10 +99,11 @@ fn main() {
                 stats_tx2.send(gen_stats(Stats::Servo, &histogram));
             }
         }
-    })
-    .expect("Failed to spawn servo thread");
+    });
 
-    let base_thread = spawn_unchecked(policy, prio, move || {
+    let base_thread = thread::spawn(move || {
+        set_thread_prio(prio, policy);
+
         let mut start = Instant::now();
 
         let mut histogram = Histogram::new();
@@ -110,7 +112,6 @@ fn main() {
 
         let mut interval = Instant::now();
 
-        // for _ in 0..100000 {
         loop {
             ticker.recv().unwrap();
             let time = start.elapsed();
@@ -124,8 +125,7 @@ fn main() {
                 stats_tx.send(gen_stats(Stats::Base, &histogram));
             }
         }
-    })
-    .expect("Failed to spawn base thread");
+    });
 
     let mut interval = 0;
 
